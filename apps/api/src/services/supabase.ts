@@ -17,6 +17,10 @@ export const getSupabaseClient = (): SupabaseClient => {
     )
   }
 
+  if (!validation.config) {
+    throw new Error('[Supabase] Configuration is unavailable.')
+  }
+
   const { url, serviceRoleKey } = validation.config
 
   supabaseClient = createClient(url, serviceRoleKey, {
