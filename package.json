@@ -2,12 +2,11 @@
   "name": "solana-web3-marketplace",
   "private": true,
   "version": "1.0.0",
-  "description": "Nigerian-style e-commerce marketplace on Solana with real wallet integration",
+  "description": "Nigerian-style e-commerce marketplace with Solana integration",
   "type": "module",
   "workspaces": [
     "apps/web",
-    "apps/api",
-    "packages/shared"
+    "apps/api"
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev --workspace apps/web\" \"npm run dev --workspace apps/api\"",
@@ -15,12 +14,7 @@
     "build:web": "npm run build --workspace apps/web",
     "build:api": "npm run build --workspace apps/api",
     "start": "npm run start --workspace apps/api",
-    "preview:web": "npm run preview --workspace apps/web",
-    "lint": "npm run lint --workspace apps/web && npm run lint --workspace apps/api",
-    "test": "npm run test --workspace apps/api",
-    "db:migrate": "npm run db:migrate --workspace apps/api",
-    "db:seed": "npm run db:seed --workspace apps/api",
-    "db:reset": "npm run db:reset --workspace apps/api"
+    "preview:web": "npm run preview --workspace apps/web"
   },
   "devDependencies": {
     "concurrently": "^9.0.1",
