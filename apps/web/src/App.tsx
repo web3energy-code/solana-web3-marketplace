@@ -1,3 +1,4 @@
+import SellPage from './pages/SellPage'
 import { useMemo, useState } from 'react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 import {
