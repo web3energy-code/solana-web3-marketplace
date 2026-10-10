@@ -10,7 +10,7 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
-    "@solana/web3.js": "^1.95.0",
+    "@solana/web3.js": "1.95.0",
     "@supabase/supabase-js": "^2.45.4",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
@@ -28,9 +28,5 @@
   },
   "devDependencies": {
     "tsx": "^4.16.8"
-  },
-  "overrides": {
-    "rpc-websockets": "9.0.4",
-    "uuid": "8.3.2"
   }
 }
