@@ -217,22 +217,7 @@ export default function App() {
           </div>
 
           <div className="wallet-button">
-            <WalletMultiButton
-              labels={{
-                'no-wallet': 'Connect Wallet',
-                'has-wallet': 'Connect Wallet',
-                'connected': 'Connected',
-                'not-connected': 'Connect Wallet',
-                'connecting': 'Connecting...',
-                'disconnecting': 'Disconnecting...',
-                'use-wallet': 'Connect Wallet',
-                'select-wallet': 'Connect Wallet',
-                'change-wallet': 'Connected',
-                'copy-address': 'Copy Address',
-                'copied': 'Copied',
-                'disconnect': 'Disconnect',
-              }}
-            />
+            <WalletMultiButton />
           </div>
 
           <button className="headbtn cartbtn" onClick={() => setShowCart(true)}>
@@ -259,6 +244,7 @@ export default function App() {
                 Explore marketplace <ArrowRight size={16}/>
               </button>
             </div>
+
             <div className="heroart">
               <div className="orbit"><span className="bagart">🛍️</span></div>
               <div className="floatpill pillone">✨ Local finds</div>
@@ -294,6 +280,7 @@ export default function App() {
                     <Heart size={16}/>
                   </button>
                 </div>
+
                 <div className="productbody">
                   <div className="seller">{p.seller}</div>
                   <div className="productname">{p.name}</div>
@@ -320,10 +307,12 @@ export default function App() {
             <div className="trusticon"><Truck size={21}/></div>
             <div><b>Shop across Nigeria</b><p>Discover products from local sellers and businesses.</p></div>
           </div>
+
           <div className="trustitem">
             <div className="trusticon"><ShieldCheck size={21}/></div>
             <div><b>Built for a better checkout</b><p>We're building a simpler way to shop online.</p></div>
           </div>
+
           <div className="trustitem">
             <div className="trusticon"><Package size={21}/></div>
             <div><b>Discover something new</b><p>Explore fresh finds across everyday categories.</p></div>
