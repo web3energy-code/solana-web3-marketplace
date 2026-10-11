@@ -1651,9 +1651,9 @@ function addToCart(id: string | number) {
 
         <button
           type=“button”
-          className={activePage === ‘wishlist’ ? ‘active’ : ‘’}
-          aria-current={activePage === ‘wishlist’ ? ‘page’ : undefined}
-          onClick={() => navigate(‘wishlist’)}
+          className={activePage === 'wishlist' ? 'active' : ''}
+          aria-current={activePage === 'wishlist' ? 'page' : undefined}
+          onClick={() => navigate('wishlist')}
         >
           <Heart size={21} />
           <span>Wishlist</span>
