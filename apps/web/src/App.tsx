@@ -1232,13 +1232,25 @@ function toggleWishlist(productId: string | number) {
 
                           <button
                             className="heart"
-                            aria-label="Save product"
-                            onClick={() =>
-                              showNotice(
-                                'Wishlist functionality is not connected yet.',
-                              )
+                            aria-label={
+                              wishlist.includes(String(product.id))
+                               ? 'Remove from wishlist'
+                               : 'Add to wishlist'
                             }
-                          >
+                            onClick={(event) => {
+                              event.stopPropagation()
+
+                              const alreadySaved = wishlist.includes(String(product.id))
+
+                              toggleWishlist(product.id)
+                              
+                              showNotice(
+                                alreadySaved
+                                  ? 'Removed from wishlist.'
+                                  : 'Added to wishlist.',
+                              )
+                          } }
+                       >
                             <Heart size={16} />
                           </button>
                         </div>
