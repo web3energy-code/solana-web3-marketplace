@@ -21,7 +21,7 @@ import {
   Tag,
 } from 'lucide-react'
 
-type Page = 'marketplace' | 'sell' | 'messages’ | 'profile' | 'wishlist'
+type Page = 'marketplace' | 'sell' | 'messages' | 'profile' | 'wishlist'
 
 type Product = {
   id: string | number
