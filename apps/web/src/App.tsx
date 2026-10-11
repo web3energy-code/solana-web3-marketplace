@@ -1029,7 +1029,7 @@ function addToCart(id: string | number) {
       `}</style>
 
       <div className="topline">
-        Made in Nigeria ð³ð¬ &nbsp; Â· &nbsp;
+        Made in Nigeria;
         <b>Discover web3 sellers. Shop smarter.</b>
       </div>
 
