@@ -22,6 +22,7 @@
     "express": "^4.19.2",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
+    "rpc-websockets": "9.3.0",
     "tweetnacl": "^1.0.3",
     "typescript": "^5.5.4",
     "zod": "^3.23.8"
