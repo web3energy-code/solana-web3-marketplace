@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 import { useWallet } from '@solana/wallet-adapter-react'
 import SellPage from './pages/SellPage'
@@ -40,6 +40,7 @@ type Product = {
 }
 
 const API_URL = 'https://solana-web3-marketplace-3et8.vercel.app'
+const PRODUCT_REFRESH_INTERVAL = 15_000
 
 const categories = [
   'All products',
@@ -67,74 +68,157 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([])
   const [loadingProducts, setLoadingProducts] = useState(true)
   const [productsError, setProductsError] = useState('')
+  const [lastProductsUpdate, setLastProductsUpdate] = useState(0)
 
+  const requestInProgress = useRef(false)
+  const mounted = useRef(false)
+
+  /**
+   * Fetch real published products from the backend.
+   *
+   * Background refreshes do not reset the full-page loading state,
+   * so the existing products remain visible while new data loads.
+   */
+  const loadProducts = useCallback(async (initialLoad = false) => {
+    if (requestInProgress.current) return
+
+    requestInProgress.current = true
+
+    if (initialLoad) {
+      setLoadingProducts(true)
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/products`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        throw new Error(
+          `Could not load products. Server returned ${response.status}.`,
+        )
+      }
+
+      const result = await response.json()
+
+      if (!result.success || !Array.isArray(result.products)) {
+        throw new Error(
+          'The marketplace returned an invalid response. Check your backend API.',
+        )
+      }
+
+      const publishedProducts = result.products.filter(
+        (product: Product) =>
+          product &&
+          product.status === 'published' &&
+          product.id !== undefined &&
+          product.id !== null,
+      )
+
+      if (!mounted.current) return
+
+      setProducts(publishedProducts)
+      setProductsError('')
+      setLastProductsUpdate(Date.now())
+    } catch (error) {
+      if (!mounted.current) return
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Could not load published products.'
+
+      setProductsError((previousError) => {
+        // Keep existing products visible if a background refresh fails.
+        if (products.length > 0 && !initialLoad) {
+          return ''
+        }
+
+        return message || previousError
+      })
+    } finally {
+      requestInProgress.current = false
+
+      if (mounted.current && initialLoad) {
+        setLoadingProducts(false)
+      }
+    }
+  }, [products.length])
+
+  /**
+   * Initial load, periodic refresh, tab visibility refresh,
+   * and refresh when the user returns to the app.
+   */
   useEffect(() => {
-    let cancelled = false
+    mounted.current = true
 
-    async function loadProducts() {
-      try {
-        setLoadingProducts(true)
-        setProductsError('')
+    void loadProducts(true)
 
-        const response = await fetch(`${API_URL}/products`)
+    const refreshInterval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void loadProducts(false)
+      }
+    }, PRODUCT_REFRESH_INTERVAL)
 
-        if (!response.ok) {
-          throw new Error(
-            `Could not load products. Server returned ${response.status}.`,
-          )
-        }
-
-        const result = await response.json()
-
-        if (!result.success || !Array.isArray(result.products)) {
-          throw new Error(
-            'The marketplace returned an invalid response. Check your backend API.',
-          )
-        }
-
-        if (!cancelled) {
-          setProducts(
-            result.products.filter(
-              (product: Product) => product.status === 'published',
-            ),
-          )
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setProductsError(
-            error instanceof Error
-              ? error.message
-              : 'Could not load published products.',
-          )
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingProducts(false)
-        }
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void loadProducts(false)
       }
     }
 
-    void loadProducts()
+    const handleWindowFocus = () => {
+      void loadProducts(false)
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleWindowFocus)
+    window.addEventListener('pageshow', handleWindowFocus)
 
     return () => {
-      cancelled = true
+      mounted.current = false
+      window.clearInterval(refreshInterval)
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityChange,
+      )
+      window.removeEventListener('focus', handleWindowFocus)
+      window.removeEventListener('pageshow', handleWindowFocus)
     }
-  }, [])
+  }, [loadProducts])
+
+  /**
+   * Refresh when the user returns to the Marketplace through
+   * SolMart's own bottom navigation.
+   */
+  useEffect(() => {
+    if (activePage === 'marketplace') {
+      void loadProducts(false)
+    }
+  }, [activePage, loadProducts])
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase()
 
     return products.filter((product) => {
+      const productCategory = String(product.category || '').toLowerCase()
+      const productName = String(product.name || '').toLowerCase()
+      const sellerWallet = String(product.seller_wallet || '').toLowerCase()
+      const location = String(product.location || '').toLowerCase()
+
       const matchesCategory =
         category === 'All products' ||
-        product.category.toLowerCase() === category.toLowerCase()
+        productCategory === category.toLowerCase()
 
       const matchesSearch =
         !query ||
-        product.name.toLowerCase().includes(query) ||
-        product.seller_wallet.toLowerCase().includes(query) ||
-        product.location.toLowerCase().includes(query) ||
-        product.category.toLowerCase().includes(query)
+        productName.includes(query) ||
+        sellerWallet.includes(query) ||
+        location.includes(query) ||
+        productCategory.includes(query)
 
       return matchesCategory && matchesSearch
     })
@@ -181,6 +265,10 @@ export default function App() {
   function navigate(page: Page) {
     setActivePage(page)
     setNotice('')
+
+    if (page === 'marketplace') {
+      void loadProducts(false)
+    }
 
     window.scrollTo({
       top: 0,
@@ -1031,7 +1119,9 @@ export default function App() {
                 </div>
 
                 <span style={{ fontSize: 12, color: '#777' }}>
-                  {loadingProducts ? 'Loading…' : `${filtered.length} products`}
+                  {loadingProducts
+                    ? 'Loading…'
+                    : `${filtered.length} products`}
                 </span>
               </div>
 
@@ -1060,7 +1150,7 @@ export default function App() {
                 </div>
               )}
 
-              {!loadingProducts && productsError && (
+              {!loadingProducts && productsError && products.length === 0 && (
                 <div
                   style={{
                     textAlign: 'center',
@@ -1073,7 +1163,7 @@ export default function App() {
                   <p>{productsError}</p>
                   <button
                     className="primary"
-                    onClick={() => window.location.reload()}
+                    onClick={() => void loadProducts(true)}
                   >
                     Try again <ArrowRight size={15} />
                   </button>
@@ -1104,90 +1194,104 @@ export default function App() {
                   </div>
                 )}
 
-              {!loadingProducts &&
-                !productsError &&
-                products.length > 0 && (
-                  <>
-                    <div className="grid">
-                      {filtered.map((product) => (
-                        <article className="card" key={product.id}>
-                          <div className="productvisual">
-                            {product.image_urls?.[0] ? (
-                              <img
-                                src={product.image_urls[0]}
-                                alt={product.name}
-                                loading="lazy"
-                              />
-                            ) : (
-                              <Package size={48} color="#8b9684" />
-                            )}
+              {!loadingProducts && products.length > 0 && (
+                <>
+                  <div className="grid">
+                    {filtered.map((product) => (
+                      <article className="card" key={product.id}>
+                        <div className="productvisual">
+                          {product.image_urls?.[0] ? (
+                            <img
+                              src={product.image_urls[0]}
+                              alt={product.name}
+                              loading="lazy"
+                            />
+                          ) : (
+                            <Package size={48} color="#8b9684" />
+                          )}
 
-                            <button
-                              className="heart"
-                              aria-label="Save product"
-                              onClick={() =>
-                                showNotice(
-                                  'Wishlist functionality is not connected yet.',
-                                )
-                              }
-                            >
-                              <Heart size={16} />
-                            </button>
+                          <button
+                            className="heart"
+                            aria-label="Save product"
+                            onClick={() =>
+                              showNotice(
+                                'Wishlist functionality is not connected yet.',
+                              )
+                            }
+                          >
+                            <Heart size={16} />
+                          </button>
+                        </div>
+
+                        <div className="productbody">
+                          <div className="seller">
+                            <MapPin
+                              size={11}
+                              style={{
+                                display: 'inline',
+                                verticalAlign: 'middle',
+                              }}
+                            />{' '}
+                            {product.location} · {product.condition}
                           </div>
 
-                          <div className="productbody">
-                            <div className="seller">
-                              <MapPin
-                                size={11}
-                                style={{
-                                  display: 'inline',
-                                  verticalAlign: 'middle',
-                                }}
-                              />{' '}
-                              {product.location} · {product.condition}
-                            </div>
+                          <div className="productname">{product.name}</div>
 
-                            <div className="productname">
-                              {product.name}
-                            </div>
-
-                            <div className="rating">
-                              {product.category} · {product.quantity}{' '}
-                              {product.quantity === 1
-                                ? 'available'
-                                : 'available'}
-                            </div>
-
-                            <div className="prices">
-                              <span className="price">
-                                {money(product.price, product.currency)}
-                              </span>
-                            </div>
-
-                            <button
-                              className="addbtn"
-                              onClick={() => addToCart(product.id)}
-                            >
-                              <Plus size={15} /> Add to cart
-                            </button>
+                          <div className="rating">
+                            {product.category} · {product.quantity}{' '}
+                            available
                           </div>
-                        </article>
-                      ))}
-                    </div>
 
-                    {filtered.length === 0 && (
-                      <p
-                        style={{
-                          textAlign: 'center',
-                          padding: 40,
-                          color: '#777',
-                        }}
-                      >
-                        No products found. Try another search or category.
-                      </p>
-                    )}
-                  </>
-                )}
+                          <div className="prices">
+                            <span className="price">
+                              {money(product.price, product.currency)}
+                            </span>
+                          </div>
+
+                          <button
+                            className="addbtn"
+                            onClick={() => addToCart(product.id)}
+                          >
+                            <Plus size={15} /> Add to cart
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+
+                  {filtered.length === 0 && (
+                    <p
+                      style={{
+                        textAlign: 'center',
+                        padding: 40,
+                        color: '#777',
+                      }}
+                    >
+                      No products found. Try another search or category.
+                    </p>
+                  )}
+                </>
+              )}
+
+              {!loadingProducts && products.length > 0 && productsError && (
+                <p
+                  style={{
+                    textAlign: 'center',
+                    padding: 12,
+                    color: '#777',
+                    fontSize: 11,
+                  }}
+                >
+                  Showing saved results. We couldn't refresh the latest
+                  products just now.
+                </p>
+              )}
+
+              {!loadingProducts && lastProductsUpdate > 0 && (
+                <span style={{ display: 'none' }}>
+                  Products last updated: {lastProductsUpdate}
+                </span>
+              )}
             </section>
 
             <section className="trust">
@@ -1330,7 +1434,10 @@ export default function App() {
 
       {showCart && (
         <div className="overlay" onClick={() => setShowCart(false)}>
-          <aside className="drawer" onClick={(event) => event.stopPropagation()}>
+          <aside
+            className="drawer"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="drawertop">
               <h2>Your cart ({cartCount})</h2>
 
@@ -1403,7 +1510,8 @@ export default function App() {
                           onClick={() => changeQuantity(product.id, 1)}
                           aria-label={`Add one ${product.name}`}
                           disabled={
-                            (cart[String(product.id)] || 0) >= product.quantity
+                            (cart[String(product.id)] || 0) >=
+                            product.quantity
                           }
                         >
                           <Plus size={13} />
