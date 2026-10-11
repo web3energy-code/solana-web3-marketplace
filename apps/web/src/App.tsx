@@ -226,7 +226,8 @@ export default function App() {
 const cartCurrencies = [
   ...new Set(cartItems.map((product) => product.currency)),
 ]
-  useEffect(() => {
+
+useEffect(() => {
   localStorage.setItem('solmart-wishlist', JSON.stringify(wishlist))
 }, [wishlist])
 
@@ -244,7 +245,8 @@ function showNotice(message: string) {
   setNotice(message)
   window.setTimeout(() => setNotice(''), 3500)
 }
-  function addToCart(id: string | number) {
+
+function addToCart(id: string | number) {
   const product = products.find(
     (item) => String(item.id) === String(id),
   )
