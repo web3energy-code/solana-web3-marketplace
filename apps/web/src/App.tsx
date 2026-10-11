@@ -220,8 +220,8 @@ export default function App() {
   ]
 
   function addToCart(id: string | number) {
-    const product = products.find(
-      (item) => String(item.id) === String(id),
+  const product = products.find(
+    (item) => String(item.id) === String(id),
   )
 
   if (!product) {
@@ -243,7 +243,7 @@ export default function App() {
   }))
 
   showNotice(`${product.name} added to your cart.`)
-  }
+}
 
   function changeQuantity(id: string | number, amount: number) {
     setCart((previous) => {
