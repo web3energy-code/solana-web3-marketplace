@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import express, { type Request, type Response } from 'express'
 import multer from 'multer'
 import { PublicKey } from '@solana/web3.js'
-import * as nacl from 'tweetnacl'
+import nacl from 'tweetnacl'
 import { getSupabaseClient } from './services/supabase.js'
 
 const router = express.Router()
