@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 import { useWallet } from '@solana/wallet-adapter-react'
 import SellPage from './pages/SellPage'
@@ -23,16 +23,23 @@ import {
 
 type Page = 'marketplace' | 'sell' | 'messages' | 'profile'
 
-const products = [
-  { id: 1, name: 'Premium Wireless Headphones', category: 'Electronics', price: 28500, old: 35000, emoji: '🎧', color: '#f0e7dc', rating: 4.8, seller: 'Lagos Tech Hub' },
-  { id: 2, name: 'Classic Everyday Sneakers', category: 'Fashion', price: 32000, old: 40000, emoji: '👟', color: '#e5e9df', rating: 4.7, seller: 'Abuja Styles' },
-  { id: 3, name: 'Smart Watch Series X', category: 'Electronics', price: 45000, old: 55000, emoji: '⌚', color: '#e6e5ef', rating: 4.9, seller: 'Gadget Plug NG' },
-  { id: 4, name: 'Luxury Skincare Set', category: 'Beauty', price: 18500, old: 22000, emoji: '🧴', color: '#f4e5e6', rating: 4.6, seller: 'Glow Essentials' },
-  { id: 5, name: 'Everyday Travel Backpack', category: 'Accessories', price: 24000, old: 30000, emoji: '🎒', color: '#e8e1d7', rating: 4.8, seller: 'Urban Finds' },
-  { id: 6, name: 'Portable Bluetooth Speaker', category: 'Electronics', price: 19500, old: 25000, emoji: '🔊', color: '#e0eaf0', rating: 4.5, seller: 'Lagos Tech Hub' },
-  { id: 7, name: 'Minimalist Wristwatch', category: 'Fashion', price: 22000, old: 28000, emoji: '⌚', color: '#e8e5df', rating: 4.7, seller: 'Abuja Styles' },
-  { id: 8, name: 'Everyday Tote Bag', category: 'Accessories', price: 12500, old: 16000, emoji: '👜', color: '#f0e2d3', rating: 4.6, seller: 'Urban Finds' },
-]
+type Product = {
+  id: string | number
+  name: string
+  description: string
+  category: string
+  condition: string
+  price: number
+  currency: 'SOL' | 'USDC'
+  quantity: number
+  location: string
+  image_urls: string[]
+  seller_wallet: string
+  status: string
+  created_at?: string
+}
+
+const API_URL = 'https://solana-web3-marketplace-3et8.vercel.app'
 
 const categories = [
   'All products',
@@ -42,7 +49,10 @@ const categories = [
   'Accessories',
 ]
 
-const money = (n: number) => '₦' + n.toLocaleString('en-NG')
+const money = (amount: number, currency: string) =>
+  `${amount.toLocaleString('en-US', {
+    maximumFractionDigits: 8,
+  })} ${currency}`
 
 export default function App() {
   const { publicKey, connected } = useWallet()
@@ -50,48 +60,118 @@ export default function App() {
   const [activePage, setActivePage] = useState<Page>('marketplace')
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All products')
-  const [cart, setCart] = useState<Record<number, number>>({})
+  const [cart, setCart] = useState<Record<string, number>>({})
   const [showCart, setShowCart] = useState(false)
   const [notice, setNotice] = useState('')
 
-  const filtered = useMemo(
-    () =>
-      products.filter(
-        (p) =>
-          (category === 'All products' || p.category === category) &&
-          (p.name.toLowerCase().includes(search.toLowerCase()) ||
-            p.seller.toLowerCase().includes(search.toLowerCase())),
-      ),
-    [search, category],
-  )
+  const [products, setProducts] = useState<Product[]>([])
+  const [loadingProducts, setLoadingProducts] = useState(true)
+  const [productsError, setProductsError] = useState('')
 
-  const cartCount = Object.values(cart).reduce((a, b) => a + b, 0)
+  useEffect(() => {
+    let cancelled = false
 
-  const cartTotal = products.reduce(
-    (sum, p) => sum + p.price * (cart[p.id] || 0),
+    async function loadProducts() {
+      try {
+        setLoadingProducts(true)
+        setProductsError('')
+
+        const response = await fetch(`${API_URL}/products`)
+
+        if (!response.ok) {
+          throw new Error(
+            `Could not load products. Server returned ${response.status}.`,
+          )
+        }
+
+        const result = await response.json()
+
+        if (!result.success || !Array.isArray(result.products)) {
+          throw new Error(
+            'The marketplace returned an invalid response. Check your backend API.',
+          )
+        }
+
+        if (!cancelled) {
+          setProducts(
+            result.products.filter(
+              (product: Product) => product.status === 'published',
+            ),
+          )
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setProductsError(
+            error instanceof Error
+              ? error.message
+              : 'Could not load published products.',
+          )
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingProducts(false)
+        }
+      }
+    }
+
+    void loadProducts()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase()
+
+    return products.filter((product) => {
+      const matchesCategory =
+        category === 'All products' ||
+        product.category.toLowerCase() === category.toLowerCase()
+
+      const matchesSearch =
+        !query ||
+        product.name.toLowerCase().includes(query) ||
+        product.seller_wallet.toLowerCase().includes(query) ||
+        product.location.toLowerCase().includes(query) ||
+        product.category.toLowerCase().includes(query)
+
+      return matchesCategory && matchesSearch
+    })
+  }, [products, search, category])
+
+  const cartCount = Object.values(cart).reduce(
+    (total, quantity) => total + quantity,
     0,
   )
 
+  const cartItems = products.filter((product) => cart[String(product.id)])
+
+  const cartCurrencies = [
+    ...new Set(cartItems.map((product) => product.currency)),
+  ]
+
   function showNotice(message: string) {
     setNotice(message)
-    window.setTimeout(() => setNotice(''), 3000)
+    window.setTimeout(() => setNotice(''), 3500)
   }
 
-  function addToCart(id: number) {
-    setCart((prev) => ({
-      ...prev,
-      [id]: (prev[id] || 0) + 1,
-    }))
-
-    showNotice('Added to your cart')
+  function addToCart(_id: string | number) {
+    showNotice(
+      'Real checkout is not connected yet. No payment has been made.',
+    )
   }
 
-  function changeQuantity(id: number, amount: number) {
-    setCart((prev) => {
-      const next = { ...prev, [id]: (prev[id] || 0) + amount }
+  function changeQuantity(id: string | number, amount: number) {
+    setCart((previous) => {
+      const key = String(id)
+      const next = { ...previous }
+      const quantity = (next[key] || 0) + amount
 
-      if (next[id] <= 0) {
-        delete next[id]
+      if (quantity <= 0) {
+        delete next[key]
+      } else {
+        next[key] = quantity
       }
 
       return next
@@ -113,9 +193,7 @@ export default function App() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 
-        * {
-          box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
           margin: 0;
@@ -124,18 +202,10 @@ export default function App() {
           background: #fff;
         }
 
-        button, input, select, textarea {
-          font: inherit;
-        }
+        button, input, select, textarea { font: inherit; }
+        button { cursor: pointer; }
 
-        button {
-          cursor: pointer;
-        }
-
-        .app {
-          min-height: 100vh;
-          padding-bottom: 82px;
-        }
+        .app { min-height: 100vh; padding-bottom: 82px; }
 
         .topline {
           background: #173d2c;
@@ -146,9 +216,7 @@ export default function App() {
           letter-spacing: .2px;
         }
 
-        .topline b {
-          color: #d5f27b;
-        }
+        .topline b { color: #d5f27b; }
 
         .header {
           border-bottom: 1px solid #eceee9;
@@ -188,11 +256,7 @@ export default function App() {
           border-radius: 11px;
         }
 
-        .searchbox {
-          flex: 1;
-          position: relative;
-          min-width: 0;
-        }
+        .searchbox { flex: 1; position: relative; min-width: 0; }
 
         .searchbox input {
           width: 100%;
@@ -204,9 +268,7 @@ export default function App() {
           font-size: 13px;
         }
 
-        .searchbox input:focus {
-          border-color: #87b94a;
-        }
+        .searchbox input:focus { border-color: #87b94a; }
 
         .searchicon {
           position: absolute;
@@ -228,9 +290,7 @@ export default function App() {
           flex-shrink: 0;
         }
 
-        .cartbtn {
-          position: relative;
-        }
+        .cartbtn { position: relative; }
 
         .badge {
           background: #b9ed65;
@@ -315,11 +375,7 @@ export default function App() {
           align-items: center;
         }
 
-        .herotext {
-          position: relative;
-          z-index: 1;
-          max-width: 560px;
-        }
+        .herotext { position: relative; z-index: 1; max-width: 560px; }
 
         .eyebrow {
           color: #c9ef88;
@@ -378,8 +434,7 @@ export default function App() {
           position: relative;
         }
 
-        .orbit:before,
-        .orbit:after {
+        .orbit:before, .orbit:after {
           content: '';
           position: absolute;
           border: 1px solid #52715c;
@@ -387,9 +442,7 @@ export default function App() {
           inset: 25px;
         }
 
-        .orbit:after {
-          inset: 52px;
-        }
+        .orbit:after { inset: 52px; }
 
         .bagart {
           font-size: 110px;
@@ -407,15 +460,8 @@ export default function App() {
           font-weight: 700;
         }
 
-        .pillone {
-          right: -5px;
-          top: 42px;
-        }
-
-        .pilltwo {
-          left: -14px;
-          bottom: 37px;
-        }
+        .pillone { right: -5px; top: 42px; }
+        .pilltwo { left: -14px; bottom: 37px; }
 
         .section {
           max-width: 1200px;
@@ -438,11 +484,7 @@ export default function App() {
           margin: 0;
         }
 
-        .sub {
-          font-size: 12px;
-          color: #7b8177;
-          margin-top: 7px;
-        }
+        .sub { font-size: 12px; color: #7b8177; margin-top: 7px; }
 
         .categories {
           display: flex;
@@ -481,6 +523,7 @@ export default function App() {
           overflow: hidden;
           background: white;
           transition: transform .2s, box-shadow .2s;
+          min-width: 0;
         }
 
         .card:hover {
@@ -493,23 +536,14 @@ export default function App() {
           display: grid;
           place-items: center;
           position: relative;
+          background: #f0f3ec;
+          overflow: hidden;
         }
 
-        .productemoji {
-          font-size: 76px;
-          filter: drop-shadow(0 12px 9px #00000014);
-        }
-
-        .sale {
-          position: absolute;
-          left: 12px;
-          top: 12px;
-          background: #fff;
-          border-radius: 6px;
-          padding: 6px 8px;
-          font-size: 10px;
-          font-weight: 800;
-          color: #b44c30;
+        .productvisual img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
         }
 
         .heart {
@@ -526,14 +560,13 @@ export default function App() {
           color: #596056;
         }
 
-        .productbody {
-          padding: 15px;
-        }
+        .productbody { padding: 15px; }
 
         .seller {
           font-size: 10px;
           color: #83897f;
           margin-bottom: 7px;
+          overflow-wrap: anywhere;
         }
 
         .productname {
@@ -541,35 +574,23 @@ export default function App() {
           font-weight: 700;
           line-height: 1.45;
           min-height: 37px;
+          overflow-wrap: anywhere;
         }
 
         .rating {
           font-size: 11px;
           color: #777e73;
           margin: 8px 0;
+          line-height: 1.5;
         }
 
-        .rating span {
-          color: #d38c2f;
-        }
-
-        .prices {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
+        .prices { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
         .price {
           font-size: 17px;
           font-weight: 800;
           letter-spacing: -.4px;
-        }
-
-        .old {
-          font-size: 11px;
-          color: #9ca196;
-          text-decoration: line-through;
+          overflow-wrap: anywhere;
         }
 
         .addbtn {
@@ -588,10 +609,7 @@ export default function App() {
           gap: 7px;
         }
 
-        .addbtn:hover {
-          background: #c3f17b;
-          border-color: #c3f17b;
-        }
+        .addbtn:hover { background: #c3f17b; border-color: #c3f17b; }
 
         .trust {
           max-width: 1152px;
@@ -622,9 +640,7 @@ export default function App() {
           flex-shrink: 0;
         }
 
-        .trustitem b {
-          font-size: 12px;
-        }
+        .trustitem b { font-size: 12px; }
 
         .trustitem p {
           font-size: 11px;
@@ -697,10 +713,7 @@ export default function App() {
           margin-bottom: 25px;
         }
 
-        .drawertop h2 {
-          margin: 0;
-          font-family: Manrope, sans-serif;
-        }
+        .drawertop h2 { margin: 0; font-family: Manrope, sans-serif; }
 
         .closebtn {
           border: 0;
@@ -718,28 +731,17 @@ export default function App() {
           border-bottom: 1px solid #eee;
         }
 
-        .cartemoji {
+        .cartimage {
           width: 65px;
           height: 65px;
           border-radius: 10px;
-          display: grid;
-          place-items: center;
-          font-size: 29px;
+          object-fit: cover;
           flex-shrink: 0;
         }
 
-        .cartdetails {
-          flex: 1;
-        }
-
-        .cartdetails b {
-          font-size: 13px;
-        }
-
-        .cartdetails p {
-          font-size: 13px;
-          font-weight: 800;
-        }
+        .cartdetails { flex: 1; min-width: 0; }
+        .cartdetails b { font-size: 13px; overflow-wrap: anywhere; }
+        .cartdetails p { font-size: 13px; font-weight: 800; }
 
         .qty {
           display: flex;
@@ -760,6 +762,7 @@ export default function App() {
         .totalrow {
           display: flex;
           justify-content: space-between;
+          gap: 10px;
           font-weight: 800;
           margin-top: 25px;
         }
@@ -775,22 +778,9 @@ export default function App() {
           font-weight: 700;
         }
 
-        .empty {
-          text-align: center;
-          padding: 55px 10px;
-          color: #777;
-        }
-
-        .empty span {
-          font-size: 45px;
-        }
-
-        .empty p {
-          font-size: 13px;
-          line-height: 1.6;
-        }
-
-        /* Bottom navigation */
+        .empty { text-align: center; padding: 55px 10px; color: #777; }
+        .empty span { font-size: 45px; }
+        .empty p { font-size: 13px; line-height: 1.6; }
 
         .bottom-nav {
           position: fixed;
@@ -820,16 +810,8 @@ export default function App() {
           min-width: 0;
         }
 
-        .bottom-nav button.active {
-          color: #173d2c;
-        }
-
-        .bottom-nav button.active svg {
-          color: #173d2c;
-          stroke-width: 2.5;
-        }
-
-        /* Messages and profile */
+        .bottom-nav button.active { color: #173d2c; }
+        .bottom-nav button.active svg { color: #173d2c; stroke-width: 2.5; }
 
         .page-placeholder {
           width: 100%;
@@ -839,10 +821,7 @@ export default function App() {
           padding: 0 18px 40px;
         }
 
-        .page-placeholder h1 {
-          font-size: 30px;
-          letter-spacing: -1px;
-        }
+        .page-placeholder h1 { font-size: 30px; letter-spacing: -1px; }
 
         .page-placeholder-card {
           padding: 22px;
@@ -864,11 +843,7 @@ export default function App() {
           margin-bottom: 16px;
         }
 
-        .profile-label {
-          color: #7b8177;
-          font-size: 12px;
-          margin-bottom: 5px;
-        }
+        .profile-label { color: #7b8177; font-size: 12px; margin-bottom: 5px; }
 
         .profile-value {
           font-size: 13px;
@@ -878,87 +853,25 @@ export default function App() {
         }
 
         @media(max-width: 850px) {
-          .headinner {
-            gap: 10px;
-            padding: 13px 16px;
-            flex-wrap: wrap;
-          }
-
-          .logo {
-            font-size: 20px;
-          }
-
-          .hero {
-            padding: 0 16px;
-          }
-
-          .herobox {
-            padding: 35px 28px;
-            min-height: 315px;
-          }
-
-          .heroart {
-            right: 5px;
-            opacity: .45;
-          }
-
-          .herotext {
-            max-width: 500px;
-          }
-
-          .section {
-            padding: 0 16px;
-          }
-
-          .grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 12px;
-          }
-
-          .productvisual {
-            height: 155px;
-          }
-
-          .productemoji {
-            font-size: 64px;
-          }
-
-          .trust {
-            padding: 0 16px;
-            grid-template-columns: 1fr;
-          }
-
-          .locationbar {
-            padding-left: 16px;
-            padding-right: 16px;
-          }
-
-          .searchbox {
-            order: 3;
-            flex-basis: 100%;
-          }
-
-          .wallet-button {
-            margin-left: auto;
-          }
+          .headinner { gap: 10px; padding: 13px 16px; flex-wrap: wrap; }
+          .logo { font-size: 20px; }
+          .hero { padding: 0 16px; }
+          .herobox { padding: 35px 28px; min-height: 315px; }
+          .heroart { right: 5px; opacity: .45; }
+          .herotext { max-width: 500px; }
+          .section { padding: 0 16px; }
+          .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+          .productvisual { height: 155px; }
+          .trust { padding: 0 16px; grid-template-columns: 1fr; }
+          .locationbar { padding-left: 16px; padding-right: 16px; }
+          .searchbox { order: 3; flex-basis: 100%; }
+          .wallet-button { margin-left: auto; }
         }
 
         @media(max-width: 420px) {
-          .headinner {
-            gap: 8px;
-            padding: 12px;
-          }
-
-          .logo {
-            font-size: 18px;
-            gap: 6px;
-          }
-
-          .logoicon {
-            width: 30px;
-            height: 30px;
-          }
-
+          .headinner { gap: 8px; padding: 12px; }
+          .logo { font-size: 18px; gap: 6px; }
+          .logoicon { width: 30px; height: 30px; }
           .wallet-button .wallet-adapter-button {
             height: 28px !important;
             min-height: 28px !important;
@@ -966,64 +879,23 @@ export default function App() {
             padding: 0 7px !important;
             font-size: 9px !important;
           }
-
           .wallet-button .wallet-adapter-button-start-icon {
             width: 12px !important;
             height: 12px !important;
             margin-right: 3px !important;
           }
-
-          .headbtn {
-            padding: 7px;
-            font-size: 11px;
-          }
-
-          .herobox {
-            padding: 30px 22px;
-            min-height: 330px;
-          }
-
-          .heroart {
-            right: -100px;
-            opacity: .24;
-          }
-
-          .herotext p {
-            font-size: 13px;
-          }
-
-          h1 {
-            font-size: 35px;
-          }
-
-          .sectionhead h2 {
-            font-size: 22px;
-          }
-
-          .productvisual {
-            height: 135px;
-          }
-
-          .productbody {
-            padding: 12px;
-          }
-
-          .price {
-            font-size: 15px;
-          }
-
-          .grid {
-            gap: 9px;
-          }
-
-          .locationinner {
-            font-size: 11px;
-          }
-
-          .page-placeholder {
-            padding-left: 16px;
-            padding-right: 16px;
-          }
+          .headbtn { padding: 7px; font-size: 11px; }
+          .herobox { padding: 30px 22px; min-height: 330px; }
+          .heroart { right: -100px; opacity: .24; }
+          .herotext p { font-size: 13px; }
+          h1 { font-size: 35px; }
+          .sectionhead h2 { font-size: 22px; }
+          .productvisual { height: 135px; }
+          .productbody { padding: 12px; }
+          .price { font-size: 15px; }
+          .grid { gap: 9px; }
+          .locationinner { font-size: 11px; }
+          .page-placeholder { padding-left: 16px; padding-right: 16px; }
         }
 
         @media(min-width: 851px) {
@@ -1038,10 +910,7 @@ export default function App() {
             box-shadow: 0 5px 25px #173d2c15;
             padding-bottom: 9px;
           }
-
-          .app {
-            padding-bottom: 95px;
-          }
+          .app { padding-bottom: 95px; }
         }
       `}</style>
 
@@ -1074,7 +943,7 @@ export default function App() {
               <Search size={17} className="searchicon" />
               <input
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search products, stores and more..."
                 aria-label="Search products and stores"
               />
@@ -1103,7 +972,7 @@ export default function App() {
             <MapPin size={14} />
             Shopping across Nigeria
             <span style={{ marginLeft: 'auto' }}>
-              Prices in Nigerian Naira (₦)
+              Prices in SOL and USDC
             </span>
           </div>
         </div>
@@ -1162,83 +1031,163 @@ export default function App() {
                 </div>
 
                 <span style={{ fontSize: 12, color: '#777' }}>
-                  {filtered.length} products
+                  {loadingProducts ? 'Loading…' : `${filtered.length} products`}
                 </span>
               </div>
 
               <div className="categories">
-                {categories.map((c) => (
+                {categories.map((item) => (
                   <button
-                    key={c}
-                    onClick={() => setCategory(c)}
-                    className={'cat ' + (category === c ? 'active' : '')}
+                    key={item}
+                    onClick={() => setCategory(item)}
+                    className={'cat ' + (category === item ? 'active' : '')}
                   >
-                    {c}
+                    {item}
                   </button>
                 ))}
               </div>
 
-              <div className="grid">
-                {filtered.map((p) => (
-                  <article className="card" key={p.id}>
-                    <div
-                      className="productvisual"
-                      style={{ background: p.color }}
-                    >
-                      <span className="productemoji">{p.emoji}</span>
+              {loadingProducts && (
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: 50,
+                    color: '#777',
+                  }}
+                >
+                  <Package size={34} />
+                  <p>Loading published products...</p>
+                </div>
+              )}
 
-                      <span className="sale">
-                        SAVE {Math.round((1 - p.price / p.old) * 100)}%
-                      </span>
-
-                      <button
-                        className="heart"
-                        aria-label="Save product"
-                        onClick={() =>
-                          showNotice(
-                            'Wishlist functionality is not connected yet.',
-                          )
-                        }
-                      >
-                        <Heart size={16} />
-                      </button>
-                    </div>
-
-                    <div className="productbody">
-                      <div className="seller">{p.seller}</div>
-                      <div className="productname">{p.name}</div>
-
-                      <div className="rating">
-                        <span>★</span> {p.rating} &nbsp;·&nbsp; Popular pick
-                      </div>
-
-                      <div className="prices">
-                        <span className="price">{money(p.price)}</span>
-                        <span className="old">{money(p.old)}</span>
-                      </div>
-
-                      <button
-                        className="addbtn"
-                        onClick={() => addToCart(p.id)}
-                      >
-                        <Plus size={15} /> Add to cart
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-
-              {filtered.length === 0 && (
-                <p
+              {!loadingProducts && productsError && (
+                <div
                   style={{
                     textAlign: 'center',
                     padding: 40,
                     color: '#777',
                   }}
                 >
-                  No products found. Try another search.
-                </p>
+                  <Package size={34} />
+                  <h3>We couldn't load the marketplace</h3>
+                  <p>{productsError}</p>
+                  <button
+                    className="primary"
+                    onClick={() => window.location.reload()}
+                  >
+                    Try again <ArrowRight size={15} />
+                  </button>
+                </div>
               )}
+
+              {!loadingProducts &&
+                !productsError &&
+                products.length === 0 && (
+                  <div
+                    style={{
+                      textAlign: 'center',
+                      padding: 50,
+                      color: '#777',
+                    }}
+                  >
+                    <Package size={42} />
+                    <h3>No products listed yet</h3>
+                    <p>
+                      Be the first to publish a product on SolMart.
+                    </p>
+                    <button
+                      className="primary"
+                      onClick={() => navigate('sell')}
+                    >
+                      List a product <ArrowRight size={15} />
+                    </button>
+                  </div>
+                )}
+
+              {!loadingProducts &&
+                !productsError &&
+                products.length > 0 && (
+                  <>
+                    <div className="grid">
+                      {filtered.map((product) => (
+                        <article className="card" key={product.id}>
+                          <div className="productvisual">
+                            {product.image_urls?.[0] ? (
+                              <img
+                                src={product.image_urls[0]}
+                                alt={product.name}
+                                loading="lazy"
+                              />
+                            ) : (
+                              <Package size={48} color="#8b9684" />
+                            )}
+
+                            <button
+                              className="heart"
+                              aria-label="Save product"
+                              onClick={() =>
+                                showNotice(
+                                  'Wishlist functionality is not connected yet.',
+                                )
+                              }
+                            >
+                              <Heart size={16} />
+                            </button>
+                          </div>
+
+                          <div className="productbody">
+                            <div className="seller">
+                              <MapPin
+                                size={11}
+                                style={{
+                                  display: 'inline',
+                                  verticalAlign: 'middle',
+                                }}
+                              />{' '}
+                              {product.location} · {product.condition}
+                            </div>
+
+                            <div className="productname">
+                              {product.name}
+                            </div>
+
+                            <div className="rating">
+                              {product.category} · {product.quantity}{' '}
+                              {product.quantity === 1
+                                ? 'available'
+                                : 'available'}
+                            </div>
+
+                            <div className="prices">
+                              <span className="price">
+                                {money(product.price, product.currency)}
+                              </span>
+                            </div>
+
+                            <button
+                              className="addbtn"
+                              onClick={() => addToCart(product.id)}
+                            >
+                              <Plus size={15} /> Add to cart
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+
+                    {filtered.length === 0 && (
+                      <p
+                        style={{
+                          textAlign: 'center',
+                          padding: 40,
+                          color: '#777',
+                        }}
+                      >
+                        No products found. Try another search or category.
+                      </p>
+                    )}
+                  </>
+                )}
             </section>
 
             <section className="trust">
@@ -1260,7 +1209,10 @@ export default function App() {
                 </div>
                 <div>
                   <b>Built for a better checkout</b>
-                  <p>We're building a simpler way to shop online.</p>
+                  <p>
+                    Secure checkout and payment processing are still being
+                    developed.
+                  </p>
                 </div>
               </div>
 
@@ -1270,7 +1222,9 @@ export default function App() {
                 </div>
                 <div>
                   <b>Discover something new</b>
-                  <p>Explore fresh finds across everyday categories.</p>
+                  <p>
+                    Explore real products published by SolMart sellers.
+                  </p>
                 </div>
               </div>
             </section>
@@ -1284,7 +1238,7 @@ export default function App() {
 
                 <div>Electronics · Fashion · Beauty · Accessories</div>
 
-                <div>© 2026 SolMart. Marketplace preview.</div>
+                <div>© 2026 SolMart.</div>
               </div>
             </footer>
           </>
@@ -1352,13 +1306,16 @@ export default function App() {
                   : 'Connect your wallet to display your address.'}
               </div>
 
-              <div className="profile-label">Solana network</div>
-              <div className="profile-value">Devnet</div>
-
-              <div className="profile-label">My listings</div>
+              <div className="profile-label">Marketplace products</div>
               <div className="profile-value">
-                Product listing management will be available after database
-                integration.
+                {products.length} published{' '}
+                {products.length === 1 ? 'product' : 'products'} currently
+                available.
+              </div>
+
+              <div className="profile-label">Payment status</div>
+              <div className="profile-value">
+                Real checkout and on-chain payments are not connected yet.
               </div>
             </div>
           </section>
@@ -1372,14 +1329,8 @@ export default function App() {
       )}
 
       {showCart && (
-        <div
-          className="overlay"
-          onClick={() => setShowCart(false)}
-        >
-          <aside
-            className="drawer"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="overlay" onClick={() => setShowCart(false)}>
+          <aside className="drawer" onClick={(event) => event.stopPropagation()}>
             <div className="drawertop">
               <h2>Your cart ({cartCount})</h2>
 
@@ -1398,7 +1349,7 @@ export default function App() {
                 <h3>Your cart is empty</h3>
 
                 <p>
-                  Explore the marketplace and add something you love.
+                  Explore the marketplace and discover products you love.
                 </p>
 
                 <button
@@ -1413,46 +1364,72 @@ export default function App() {
               </div>
             ) : (
               <>
-                {products
-                  .filter((p) => cart[p.id])
-                  .map((p) => (
-                    <div className="cartrow" key={p.id}>
+                {cartItems.map((product) => (
+                  <div className="cartrow" key={product.id}>
+                    {product.image_urls?.[0] ? (
+                      <img
+                        className="cartimage"
+                        src={product.image_urls[0]}
+                        alt={product.name}
+                      />
+                    ) : (
                       <div
-                        className="cartemoji"
-                        style={{ background: p.color }}
+                        className="cartimage"
+                        style={{
+                          display: 'grid',
+                          placeItems: 'center',
+                          background: '#f0f3ec',
+                        }}
                       >
-                        {p.emoji}
+                        <Package size={25} />
                       </div>
+                    )}
 
-                      <div className="cartdetails">
-                        <b>{p.name}</b>
-                        <p>{money(p.price)}</p>
+                    <div className="cartdetails">
+                      <b>{product.name}</b>
+                      <p>{money(product.price, product.currency)}</p>
 
-                        <div className="qty">
-                          <button
-                            onClick={() => changeQuantity(p.id, -1)}
-                            aria-label={`Remove one ${p.name}`}
-                          >
-                            <Minus size={13} />
-                          </button>
+                      <div className="qty">
+                        <button
+                          onClick={() => changeQuantity(product.id, -1)}
+                          aria-label={`Remove one ${product.name}`}
+                        >
+                          <Minus size={13} />
+                        </button>
 
-                          {cart[p.id]}
+                        {cart[String(product.id)]}
 
-                          <button
-                            onClick={() => changeQuantity(p.id, 1)}
-                            aria-label={`Add one ${p.name}`}
-                          >
-                            <Plus size={13} />
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => changeQuantity(product.id, 1)}
+                          aria-label={`Add one ${product.name}`}
+                          disabled={
+                            (cart[String(product.id)] || 0) >= product.quantity
+                          }
+                        >
+                          <Plus size={13} />
+                        </button>
                       </div>
                     </div>
-                  ))}
+                  </div>
+                ))}
 
-                <div className="totalrow">
-                  <span>Subtotal</span>
-                  <span>{money(cartTotal)}</span>
-                </div>
+                {cartCurrencies.map((currency) => {
+                  const subtotal = cartItems
+                    .filter((product) => product.currency === currency)
+                    .reduce(
+                      (sum, product) =>
+                        sum +
+                        product.price * (cart[String(product.id)] || 0),
+                      0,
+                    )
+
+                  return (
+                    <div className="totalrow" key={currency}>
+                      <span>{currency} subtotal</span>
+                      <span>{money(subtotal, currency)}</span>
+                    </div>
+                  )
+                })}
 
                 <p
                   style={{
@@ -1461,18 +1438,20 @@ export default function App() {
                     lineHeight: 1.6,
                   }}
                 >
-                  This is a storefront preview. Checkout and payment
-                  processing are not connected yet.
+                  Checkout and payment processing are not connected. No
+                  payment will be made from this cart.
                 </p>
 
                 <button
                   className="checkout"
                   onClick={() => {
                     setShowCart(false)
-                    showNotice('Checkout is not connected yet.')
+                    showNotice(
+                      'Real checkout is not connected yet. No payment has been made.',
+                    )
                   }}
                 >
-                  Continue to checkout
+                  Checkout not available yet
                 </button>
               </>
             )}
