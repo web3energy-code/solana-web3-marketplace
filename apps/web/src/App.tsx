@@ -21,7 +21,13 @@ import {
   Tag,
 } from 'lucide-react'
 
-type Page = 'marketplace' | 'sell' | 'messages' | 'profile' | 'wishlist'
+type Page =
+  | 'marketplace'
+  | 'sell'
+  | 'messages'
+  | 'profile'
+  | 'wishlist'
+  | 'product-details'
 
 type Product = {
   id: string | number
@@ -1029,7 +1035,6 @@ function addToCart(id: string | number) {
       `}</style>
 
       <div className="topline">
-        Made in Nigeria;
         <b>Discover web3 sellers. Shop smarter.</b>
       </div>
 
@@ -1399,6 +1404,319 @@ function addToCart(id: string | number) {
           </>
         )}
 
+      {activePage === 'product-details' && selectedProduct && (
+  <section className="section" style={{ paddingBottom: 100 }}>
+    <button
+      className="addbtn"
+      style={{ width: 'auto', padding: '10px 16px', marginBottom: 24 }}
+      onClick={() => navigate('marketplace')}
+    >
+      ← Back to marketplace
+    </button>
+
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
+        gap: 32,
+        alignItems: 'start',
+      }}
+    >
+      {/* PRODUCT IMAGE */}
+      <div>
+        <div
+          className="productvisual"
+          style={{
+            height: 'auto',
+            minHeight: 280,
+            maxHeight: 480,
+            borderRadius: 18,
+          }}
+        >
+          {selectedProduct.image_urls?.[0] ? (
+            <img
+              src={selectedProduct.image_urls[0]}
+              alt={selectedProduct.name}
+              style={{
+                width: '100%',
+                height: '100%',
+                minHeight: 280,
+                maxHeight: 480,
+                objectFit: 'contain',
+              }}
+            />
+          ) : (
+            <Package size={70} color="#8b9684" />
+          )}
+        </div>
+
+        {selectedProduct.image_urls?.length > 1 && (
+          <div
+            style={{
+              display: 'flex',
+              gap: 10,
+              overflowX: 'auto',
+              marginTop: 12,
+            }}
+          >
+            {selectedProduct.image_urls.map((image, index) => (
+              <img
+                key={`${image}-${index}`}
+                src={image}
+                alt={`${selectedProduct.name} image ${index + 1}`}
+                style={{
+                  width: 75,
+                  height: 75,
+                  objectFit: 'cover',
+                  borderRadius: 10,
+                  border: '1px solid #e5e8e1',
+                  flexShrink: 0,
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* PRODUCT INFORMATION */}
+      <div>
+        <div className="sub">
+          {selectedProduct.category} · {selectedProduct.condition}
+        </div>
+
+        <h1 style={{ fontSize: 32, letterSpacing: '-1px' }}>
+          {selectedProduct.name}
+        </h1>
+
+        <div
+          style={{
+            fontSize: 27,
+            fontWeight: 800,
+            color: '#173d2c',
+            margin: '18px 0',
+          }}
+        >
+          {money(selectedProduct.price, selectedProduct.currency)}
+        </div>
+
+        <div
+          style={{
+            display: 'inline-block',
+            background:
+              selectedProduct.quantity > 0 ? '#eff7e4' : '#fdeaea',
+            color:
+              selectedProduct.quantity > 0 ? '#28583d' : '#b42318',
+            borderRadius: 20,
+            padding: '7px 12px',
+            fontSize: 12,
+            fontWeight: 700,
+          }}
+        >
+          {selectedProduct.quantity > 0
+            ? `${selectedProduct.quantity} available`
+            : 'Out of stock'}
+        </div>
+
+        <div
+          style={{
+            marginTop: 22,
+            padding: 18,
+            border: '1px solid #e5e8e1',
+            borderRadius: 14,
+          }}
+        >
+          <h3 style={{ marginTop: 0 }}>Product description</h3>
+
+          <p
+            style={{
+              fontSize: 14,
+              lineHeight: 1.8,
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere',
+              color: '#596056',
+            }}
+          >
+            {selectedProduct.description?.trim() ||
+              'The seller has not provided a description for this product.'}
+          </p>
+
+          <div style={{ marginTop: 18 }}>
+            <div className="profile-label">Condition</div>
+            <div className="profile-value">
+              {selectedProduct.condition || 'Not specified'}
+            </div>
+
+            <div className="profile-label">Category</div>
+            <div className="profile-value">
+              {selectedProduct.category || 'Not specified'}
+            </div>
+
+            <div className="profile-label">Location</div>
+            <div className="profile-value">
+              {selectedProduct.location || 'Not specified'}
+            </div>
+
+            <div className="profile-label">Quantity available</div>
+            <div className="profile-value">
+              {selectedProduct.quantity}
+            </div>
+          </div>
+        </div>
+
+        {/* SELLER INFORMATION */}
+        <div
+          style={{
+            marginTop: 18,
+            padding: 18,
+            border: '1px solid #e5e8e1',
+            borderRadius: 14,
+          }}
+        >
+          <h3 style={{ marginTop: 0 }}>Seller information</h3>
+
+          <div className="profile-label">Seller wallet address</div>
+
+          <div
+            className="profile-value"
+            style={{
+              overflowWrap: 'anywhere',
+              wordBreak: 'break-word',
+            }}
+          >
+            {selectedProduct.seller_wallet || 'Not provided'}
+          </div>
+
+          <p className="sub">
+            This is the seller wallet address recorded for this listing.
+            It does not independently verify the seller's identity.
+          </p>
+
+          <button
+            className="addbtn"
+            onClick={() =>
+              showNotice(
+                'Seller messaging is not connected yet.',
+              )
+            }
+          >
+            <MessageCircle size={16} />
+            Message Seller
+          </button>
+        </div>
+
+        {/* REVIEWS */}
+        <div
+          style={{
+            marginTop: 18,
+            padding: 18,
+            border: '1px solid #e5e8e1',
+            borderRadius: 14,
+          }}
+        >
+          <h3 style={{ marginTop: 0 }}>
+            <ShieldCheck
+              size={19}
+              style={{ verticalAlign: 'middle' }}
+            />{' '}
+            Buyer reviews & ratings
+          </h3>
+
+          <p
+            style={{
+              fontSize: 13,
+              lineHeight: 1.7,
+              color: '#777',
+            }}
+          >
+            Buyer reviews and ratings will appear here when the
+            review system is connected.
+          </p>
+        </div>
+
+        <button
+          className="primary"
+          style={{
+            width: '100%',
+            justifyContent: 'center',
+            marginTop: 22,
+            opacity: selectedProduct.quantity > 0 ? 1 : 0.5,
+          }}
+          disabled={selectedProduct.quantity <= 0}
+          onClick={() => addToCart(selectedProduct.id)}
+        >
+          <ShoppingCart size={18} />
+          Add to Cart
+        </button>
+      </div>
+    </div>
+
+    {/* OTHER PRODUCTS FROM THIS SELLER */}
+    <div style={{ marginTop: 48 }}>
+      <div className="sectionhead">
+        <div>
+          <h2>More from this seller</h2>
+          <div className="sub">
+            Discover other products listed by the same seller.
+          </div>
+        </div>
+      </div>
+
+      {products.filter(
+        (product) =>
+          String(product.id) !== String(selectedProduct.id) &&
+          product.seller_wallet === selectedProduct.seller_wallet,
+      ).length === 0 ? (
+        <p style={{ color: '#777', fontSize: 13 }}>
+          This seller has no other published products yet.
+        </p>
+      ) : (
+        <div className="grid">
+          {products
+            .filter(
+              (product) =>
+                String(product.id) !== String(selectedProduct.id) &&
+                product.seller_wallet === selectedProduct.seller_wallet,
+            )
+            .map((product) => (
+              <article
+                className="card"
+                key={product.id}
+                onClick={() => setSelectedProduct(product)}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className="productvisual">
+                  {product.image_urls?.[0] ? (
+                    <img
+                      src={product.image_urls[0]}
+                      alt={product.name}
+                      loading="lazy"
+                    />
+                  ) : (
+                    <Package size={40} color="#8b9684" />
+                  )}
+                </div>
+
+                <div className="productbody">
+                  <div className="productname">{product.name}</div>
+
+                  <div className="rating">
+                    {product.quantity > 0
+                      ? `${product.quantity} available`
+                      : 'Out of stock'}
+                  </div>
+
+                  <div className="price">
+                    {money(product.price, product.currency)}
+                  </div>
+                </div>
+              </article>
+            ))}
+        </div>
+      )}
+    </div>
+  </section>
+)}
+        
         {activePage === 'sell' && <SellPage />}
 
         {activePage === 'messages' && (
@@ -1548,7 +1866,15 @@ function addToCart(id: string | number) {
                       wishlist.includes(String(product.id))
                     )
                     .map((product) => (
-                      <article className="card" key={product.id}>
+                     <article
+                       className="card"
+                       key={product.id}
+                       onClick={() => {
+                         setSelectedProduct(product)
+                         navigate('product-details')
+                       }}
+                       style={{ cursor: 'pointer' }}
+                     >
                         <div className="productvisual">
                           {product.image_urls?.[0] ? (
                             <img
@@ -1587,7 +1913,10 @@ function addToCart(id: string | number) {
 
                           <button
                             className="addbtn"
-                            onClick={() => addToCart(product.id)}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              addToCart(product.id)
+                            }}
                           >
                             <Plus size={15} /> Add to cart
                           </button>
