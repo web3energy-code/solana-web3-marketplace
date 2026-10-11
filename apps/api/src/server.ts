@@ -12,9 +12,21 @@ import productPublishingRouter from './productPublishing.js'
 
 const app = express()
 
+// Allowed frontend origins
+const allowedOrigins = [
+  'https://solana-web3-marketplace.vercel.app',
+  'http://localhost:5173',
+]
+
 app.use(
   cors({
-    origin: env.CORS_ORIGIN.split(',').map((origin) => origin.trim()),
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true)
+      } else {
+        callback(new Error(`Origin not allowed by CORS: ${origin}`))
+      }
+    },
     credentials: true,
   }),
 )
