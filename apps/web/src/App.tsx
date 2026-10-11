@@ -1251,7 +1251,19 @@ function toggleWishlist(productId: string | number) {
                               )
                           } }
                        >
-                            <Heart size={16} />
+                            <Heart 
+                              size={16} 
+                              fill={
+                                wishlist.includes(String(product.id))
+                                  ? '#e53935'
+                                  : 'none'                     
+                              }
+                              colour={
+                                wishlist.includes(String(product.id) 
+                                  ? '#e53935'
+                                  : 'currentColor'
+                              }
+                            />
                           </button>
                         </div>
 
