@@ -88,7 +88,7 @@ async function publishProduct(
 
     const {
       walletAddress,
-      challengeMessage,
+      challengeMessage: rawChallengeMessage,
       signature,
       name,
       description,
@@ -101,6 +101,12 @@ async function publishProduct(
       coverIndex,
     } = req.body ?? {}
 
+    // Browsers turn \n into \r\n inside multipart form fields, which breaks
+    // the signature check. Restore the exact text the wallet signed.
+    const challengeMessage =
+      typeof rawChallengeMessage === 'string'
+        ? rawChallengeMessage.replace(/\r\n/g, '\n')
+        : rawChallengeMessage
     const files = (req.files as Express.Multer.File[] | undefined) ?? []
 
     if (
