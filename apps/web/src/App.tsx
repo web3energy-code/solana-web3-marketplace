@@ -65,6 +65,14 @@ export default function App() {
   const [showCart, setShowCart] = useState(false)
   const [notice, setNotice] = useState('')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [wishlist, setWishlist] = useState<string[]>(() => {
+  try {
+    const saved = localStorage.getItem('solmart-wishlist')
+    return saved ? JSON.parse(saved) : []
+  } catch {
+    return []
+  }
+})
 
   const [products, setProducts] = useState<Product[]>([])
   const [loadingProducts, setLoadingProducts] = useState(true)
@@ -215,9 +223,22 @@ export default function App() {
 
   const cartItems = products.filter((product) => cart[String(product.id)])
 
-  const cartCurrencies = [
-    ...new Set(cartItems.map((product) => product.currency)),
-  ]
+const cartCurrencies = [
+  ...new Set(cartItems.map((product) => product.currency)),
+]
+  useEffect(() => {
+  localStorage.setItem('solmart-wishlist', JSON.stringify(wishlist))
+}, [wishlist])
+
+function toggleWishlist(productId: string | number) {
+  const id = String(productId)
+
+  setWishlist((previous) =>
+    previous.includes(id)
+      ? previous.filter((savedId) => savedId !== id)
+      : [...previous, id],
+  )
+}
 
   function addToCart(id: string | number) {
   const product = products.find(
