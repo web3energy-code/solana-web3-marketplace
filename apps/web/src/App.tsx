@@ -1258,12 +1258,13 @@ function toggleWishlist(productId: string | number) {
                                   ? '#e53935'
                                   : 'none'                     
                               }
-                              colour={
-                                wishlist.includes(String(product.id) 
+                              color={
+                                wishlist.includes(String(product.id))
                                   ? '#e53935'
                                   : 'currentColor'
                               }
                             />
+                          
                           </button>
                         </div>
 
