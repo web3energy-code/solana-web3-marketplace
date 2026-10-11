@@ -64,6 +64,7 @@ export default function App() {
   const [cart, setCart] = useState<Record<string, number>>({})
   const [showCart, setShowCart] = useState(false)
   const [notice, setNotice] = useState('')
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
 
   const [products, setProducts] = useState<Product[]>([])
   const [loadingProducts, setLoadingProducts] = useState(true)
@@ -218,15 +219,30 @@ export default function App() {
     ...new Set(cartItems.map((product) => product.currency)),
   ]
 
-  function showNotice(message: string) {
-    setNotice(message)
-    window.setTimeout(() => setNotice(''), 3500)
+  function addToCart(id: string | number) {
+    const product = products.find(
+      (item) => String(item.id) === String(id),
+  )
+
+  if (!product) {
+    showNotice('Product not found. Please refresh the marketplace.')
+    return
   }
 
-  function addToCart(_id: string | number) {
-    showNotice(
-      'Real checkout is not connected yet. No payment has been made.',
-    )
+  const key = String(product.id)
+  const currentQuantity = cart[key] || 0
+
+  if (currentQuantity >= product.quantity) {
+    showNotice('You have reached the available quantity.')
+    return
+  }
+
+  setCart((previous) => ({
+    ...previous,
+    [key]: (previous[key] || 0) + 1,
+  }))
+
+  showNotice(`${product.name} added to your cart.`)
   }
 
   function changeQuantity(id: string | number, amount: number) {
@@ -986,8 +1002,8 @@ export default function App() {
       `}</style>
 
       <div className="topline">
-        Made for Nigeria 🇳🇬 &nbsp; · &nbsp;
-        <b>Discover local sellers. Shop smarter.</b>
+        Made in Nigeria 🇳🇬 &nbsp; · &nbsp;
+        <b>Discover web3 sellers. Shop smarter.</b>
       </div>
 
       <header className="header">
