@@ -1475,6 +1475,144 @@ function addToCart(id: string | number) {
             </div>
           </section>
         )}
+
+                {activePage === 'wishlist' && (
+          <section className="section" style={{ paddingBottom: 100 }}>
+            <div className="sectionhead">
+              <div>
+                <h2>
+                  My Wishlist <Heart size={20} style={{ verticalAlign: 'middle' }} />
+                </h2>
+                <div className="sub">
+                  Your favourite finds, all in one place.
+                </div>
+              </div>
+
+              <span style={{ fontSize: 12, color: '#777' }}>
+                {
+                  products.filter((product) =>
+                    wishlist.includes(String(product.id))
+                  ).length
+                } saved
+              </span>
+            </div>
+
+            {loadingProducts && (
+              <div style={{ textAlign: 'center', padding: 40, color: '#777' }}>
+                <Package size={32} />
+                <p>Loading your saved products...</p>
+              </div>
+            )}
+
+            {!loadingProducts &&
+              productsError &&
+              products.length === 0 && (
+                <div style={{ textAlign: 'center', padding: 40, color: '#777' }}>
+                  <Package size={32} />
+                  <h3>We couldn't load your saved products</h3>
+                  <p>{productsError}</p>
+                  <button
+                    className="primary"
+                    onClick={() => void loadProducts(true)}
+                  >
+                    Try again <ArrowRight size={15} />
+                  </button>
+                </div>
+              )}
+
+            {!loadingProducts &&
+              !(productsError && products.length === 0) &&
+              products.filter((product) =>
+                wishlist.includes(String(product.id))
+              ).length === 0 && (
+                <div style={{ textAlign: 'center', padding: '45px 20px' }}>
+                  <Heart size={42} color="#8b9684" />
+                  <h3>Your wishlist is empty</h3>
+                  <p>Tap the heart on any product to save it here.</p>
+                  <button
+                    className="primary"
+                    onClick={() => navigate('marketplace')}
+                  >
+                    Explore marketplace <ArrowRight size={15} />
+                  </button>
+                </div>
+              )}
+
+            {!loadingProducts &&
+              products.filter((product) =>
+                wishlist.includes(String(product.id))
+              ).length > 0 && (
+                <div className="grid">
+                  {products
+                    .filter((product) =>
+                      wishlist.includes(String(product.id))
+                    )
+                    .map((product) => (
+                      <article className="card" key={product.id}>
+                        <div className="productvisual">
+                          {product.image_urls?.[0] ? (
+                            <img
+                              src={product.image_urls[0]}
+                              alt={product.name}
+                              loading="lazy"
+                            />
+                          ) : (
+                            <Package size={48} color="#8b9684" />
+                          )}
+                        </div>
+
+                        <div className="productbody">
+                          <div className="seller">
+                            <MapPin
+                              size={11}
+                              style={{
+                                display: 'inline',
+                                verticalAlign: 'middle',
+                              }}
+                            />{' '}
+                            {product.location} · {product.condition}
+                          </div>
+
+                          <div className="productname">{product.name}</div>
+
+                          <div className="rating">
+                            {product.category} · {product.quantity} available
+                          </div>
+
+                          <div className="prices">
+                            <span className="price">
+                              {money(product.price, product.currency)}
+                            </span>
+                          </div>
+
+                          <button
+                            className="addbtn"
+                            onClick={() => addToCart(product.id)}
+                          >
+                            <Plus size={15} /> Add to cart
+                          </button>
+
+                          <button
+                            className="addbtn"
+                            onClick={() => {
+                              toggleWishlist(product.id)
+                              showNotice('Removed from wishlist.')
+                            }}
+                          >
+                            <Heart
+                              size={15}
+                              fill="#e53935"
+                              color="#e53935"
+                            />
+                            Remove from wishlist
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                </div>
+              )}
+          </section>
+        )}
       </main>
 
       {notice && (
