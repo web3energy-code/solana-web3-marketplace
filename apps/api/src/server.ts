@@ -20,10 +20,12 @@ app.use(
 )
 
 app.use(express.json({ limit: '1mb' }))
-app.use('/products', productPublishingRouter)
 app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'))
 
-// Existing health check
+// Product publishing endpoint
+app.use('/products', productPublishingRouter)
+
+// Health check
 app.get('/health', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
@@ -50,7 +52,6 @@ app.post('/wallet/challenge', async (req: Request, res: Response) => {
   }
 
   try {
-    // Validate the Solana wallet address.
     new PublicKey(walletAddress)
 
     const challenge = await createWalletChallenge(walletAddress)
@@ -73,12 +74,14 @@ app.post('/wallet/challenge', async (req: Request, res: Response) => {
   }
 })
 
-// Existing 404 handler
+// Handle unknown routes
 app.use((_req: Request, res: Response) => {
-  res.status(404).json({ error: 'Route not found' })
+  res.status(404).json({
+    error: 'Route not found',
+  })
 })
 
-// Existing error handler
+// Global error handler
 app.use(
   (
     err: Error,
