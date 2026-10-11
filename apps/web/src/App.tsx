@@ -240,6 +240,10 @@ function toggleWishlist(productId: string | number) {
   )
 }
 
+function showNotice(message: string) {
+  setNotice(message)
+  window.setTimeout(() => setNotice(''), 3500)
+}
   function addToCart(id: string | number) {
   const product = products.find(
     (item) => String(item.id) === String(id),
