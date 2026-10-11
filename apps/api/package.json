@@ -28,5 +28,8 @@
   },
   "devDependencies": {
     "tsx": "^4.16.8"
+  },
+  "overrides": {
+    "uuid": "^9.0.1"
   }
 }
