@@ -1,5 +1,3 @@
-See my current app.tsx file 
-
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 import { useWallet } from '@solana/wallet-adapter-react'
