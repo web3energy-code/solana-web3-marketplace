@@ -403,6 +403,37 @@ async function publishProduct(
   }
 }
 
+// Retrieve real published marketplace products.
+router.get('/', async (_req: Request, res: Response) => {
+  try {
+    const supabase = getSupabaseClient()
+
+    const { data: products, error } = await supabase
+      .from(PRODUCTS_TABLE)
+      .select('*')
+      .eq('status', 'published')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Failed to fetch marketplace products:', error.message)
+
+      sendError(res, 500, 'Could not load marketplace products.')
+      return
+    }
+
+    res.status(200).json({
+      success: true,
+      products: products ?? [],
+    })
+  } catch (error) {
+    console.error(
+      'Marketplace products retrieval failed:',
+      error instanceof Error ? error.message : 'Unknown error',
+    )
+
+    sendError(res, 500, 'Could not load marketplace products.')
+  }
+})
 router.post('/', (req: Request, res: Response) => {
   upload.array('photos', MAX_PHOTOS)(
     req,
