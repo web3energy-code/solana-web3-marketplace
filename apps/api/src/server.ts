@@ -8,6 +8,7 @@ import morgan from 'morgan'
 import { PublicKey } from '@solana/web3.js'
 import { env } from './config/env.js'
 import { createWalletChallenge } from './walletChallenges.js'
+import productPublishingRouter from './productPublishing.js'
 
 const app = express()
 
@@ -19,6 +20,7 @@ app.use(
 )
 
 app.use(express.json({ limit: '1mb' }))
+app.use('/products', productPublishingRouter)
 app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'))
 
 // Existing health check
