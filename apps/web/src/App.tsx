@@ -1229,7 +1229,16 @@ function addToCart(id: string | number) {
                 <>
                   <div className="grid">
                     {filtered.map((product) => (
-                      <article className="card" key={product.id}>
+                      <article
+                        className="card"
+                        key={product.id}
+                        onClick={() => {
+                          setSelectedProduct(product)
+                          navigate('product-details')
+                         }}
+                          style={{ cursor: 'pointer' }}
+                      >
+
                         <div className="productvisual">
                           {product.image_urls?.[0] ? (
                             <img
