@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { randomUUID, createPublicKey, verify as cryptoVerify } from 'node:crypto'
 import express, { type Request, type Response } from 'express'
 import multer from 'multer'
 import { PublicKey } from '@solana/web3.js'
@@ -35,15 +35,45 @@ const upload = multer({
   },
 })
 
-function sendError(
-  res: Response,
-  status: number,
-  message: string,
-) {
+function sendError(res: Response, status: number, message: string) {
   res.status(status).json({
     success: false,
     error: message,
   })
+}
+
+/**
+ * Verify a Solana Ed25519 signature using Node.js crypto.
+ * Solana public keys are 32-byte Ed25519 public keys.
+ */
+function verifySolanaSignature(
+  message: Buffer,
+  signature: Buffer,
+  publicKeyBytes: Uint8Array,
+): boolean {
+  if (signature.length !== 64 || publicKeyBytes.length !== 32) {
+    return false
+  }
+
+  // Ed25519 SPKI DER prefix for a raw 32-byte public key.
+  const spkiPrefix = Buffer.from('302a300506032b6570032100', 'hex')
+  const derPublicKey = Buffer.concat([
+    spkiPrefix,
+    Buffer.from(publicKeyBytes),
+  ])
+
+  const keyObject = createPublicKey({
+    key: derPublicKey,
+    format: 'der',
+    type: 'spki',
+  })
+
+  return cryptoVerify(
+    null,
+    message,
+    keyObject,
+    signature,
+  )
 }
 
 async function publishProduct(
@@ -73,7 +103,6 @@ async function publishProduct(
 
     const files = (req.files as Express.Multer.File[] | undefined) ?? []
 
-    // Validate required fields.
     if (
       typeof walletAddress !== 'string' ||
       typeof challengeMessage !== 'string' ||
@@ -120,10 +149,7 @@ async function publishProduct(
       return
     }
 
-    if (
-      !Number.isSafeInteger(parsedQuantity) ||
-      parsedQuantity < 1
-    ) {
+    if (!Number.isSafeInteger(parsedQuantity) || parsedQuantity < 1) {
       sendError(res, 400, 'Quantity must be a whole number of at least one.')
       return
     }
@@ -138,7 +164,6 @@ async function publishProduct(
       return
     }
 
-    // Validate and normalize the Solana wallet address.
     let publicKey: PublicKey
 
     try {
@@ -150,7 +175,6 @@ async function publishProduct(
 
     const normalizedWallet = publicKey.toBase58()
 
-    // Decode and validate the wallet signature.
     let signatureBytes: Buffer
 
     try {
@@ -168,31 +192,52 @@ async function publishProduct(
       return
     }
 
-    // Verify the exact challenge message against the wallet public key.
     const messageBytes = Buffer.from(challengeMessage, 'utf8')
     const publicKeyBytes = publicKey.toBytes()
 
-    const validSignature = nacl.sign.detached.verify(
-      new Uint8Array(messageBytes),
-      new Uint8Array(signatureBytes),
-      publicKeyBytes,
-    )
+    let naclValid = false
+    let cryptoValid = false
 
-    // Diagnostic information only; never log the signature or challenge.
+    try {
+      naclValid = nacl.sign.detached.verify(
+        new Uint8Array(messageBytes),
+        new Uint8Array(signatureBytes),
+        publicKeyBytes,
+      )
+    } catch (error) {
+      console.error(
+        'TweetNaCl verification error:',
+        error instanceof Error ? error.message : 'Unknown error',
+      )
+    }
+
+    try {
+      cryptoValid = verifySolanaSignature(
+        messageBytes,
+        signatureBytes,
+        publicKeyBytes,
+      )
+    } catch (error) {
+      console.error(
+        'Node crypto verification error:',
+        error instanceof Error ? error.message : 'Unknown error',
+      )
+    }
+
     console.log('Wallet signature verification diagnostic:', {
       walletAddress: normalizedWallet,
       messageLength: messageBytes.length,
       signatureLength: signatureBytes.length,
       publicKeyLength: publicKeyBytes.length,
-      validSignature,
+      naclValid,
+      cryptoValid,
     })
 
-    if (!validSignature) {
+    if (!naclValid && !cryptoValid) {
       sendError(res, 401, 'Wallet signature verification failed.')
       return
     }
 
-    // Find the exact challenge issued to this wallet.
     const { data: challenge, error: challengeError } = await supabase
       .from(CHALLENGES_TABLE)
       .select('id, wallet_address, challenge, expires_at, used_at')
@@ -223,7 +268,6 @@ async function publishProduct(
       return
     }
 
-    // Atomically consume the challenge to prevent replaying it.
     const { data: consumedChallenge, error: consumeError } = await supabase
       .from(CHALLENGES_TABLE)
       .update({ used_at: now.toISOString() })
@@ -248,7 +292,6 @@ async function publishProduct(
       return
     }
 
-    // Upload product photos to Supabase Storage.
     const imageUrls: string[] = []
 
     for (const file of files) {
@@ -283,7 +326,6 @@ async function publishProduct(
       imageUrls.push(publicUrlData.publicUrl)
     }
 
-    // Select which uploaded photo should appear first.
     const parsedCoverIndex =
       coverIndex === undefined || coverIndex === ''
         ? 0
@@ -301,7 +343,6 @@ async function publishProduct(
     const [coverUrl] = orderedImageUrls.splice(parsedCoverIndex, 1)
     orderedImageUrls.unshift(coverUrl)
 
-    // Save the product in Supabase.
     const { data: product, error: productError } = await supabase
       .from(PRODUCTS_TABLE)
       .insert({
@@ -336,7 +377,6 @@ async function publishProduct(
       error instanceof Error ? error.message : 'Unknown error',
     )
 
-    // Clean up photos if publishing failed after uploading them.
     if (supabase && uploadedPaths.length > 0) {
       const { error: cleanupError } = await supabase.storage
         .from(STORAGE_BUCKET)
@@ -357,28 +397,24 @@ async function publishProduct(
   }
 }
 
-// Handle multipart form uploads and return useful upload errors.
-router.post(
-  '/',
-  (req: Request, res: Response) => {
-    upload.array('photos', MAX_PHOTOS)(
-      req,
-      res,
-      (uploadError: unknown) => {
-        if (uploadError) {
-          const message =
-            uploadError instanceof Error
-              ? uploadError.message
-              : 'Photo upload failed.'
+router.post('/', (req: Request, res: Response) => {
+  upload.array('photos', MAX_PHOTOS)(
+    req,
+    res,
+    (uploadError: unknown) => {
+      if (uploadError) {
+        const message =
+          uploadError instanceof Error
+            ? uploadError.message
+            : 'Photo upload failed.'
 
-          sendError(res, 400, message)
-          return
-        }
+        sendError(res, 400, message)
+        return
+      }
 
-        void publishProduct(req, res)
-      },
-    )
-  },
-)
+      void publishProduct(req, res)
+    },
+  )
+})
 
 export default router
