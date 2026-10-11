@@ -1594,5 +1594,3 @@ export default function App() {
     </div>
   )
 }
-
-Edit it yourself and give to me to comply 
