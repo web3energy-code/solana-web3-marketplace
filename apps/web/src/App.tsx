@@ -1592,7 +1592,9 @@ function addToCart(id: string | number) {
               wordBreak: 'break-word',
             }}
           >
-            {selectedProduct.seller_wallet || 'Not provided'}
+           {selectedProduct.seller_wallet
+             ? `${selectedProduct.seller_wallet.slice(0, 4)}...${selectedProduct.seller_wallet.slice(-4)}`
+             : 'Wallet unavailable'}
           </div>
 
           <p className="sub">
