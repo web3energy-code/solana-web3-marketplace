@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
 
 const MAX_PHOTOS = 10
+const MAX_FILE_SIZE = 5 * 1024 * 1024
+
+const API_URL = 'https://solana-web3-marketplace-3et8.vercel.app'
 
 type ProductPhoto = {
   id: string
@@ -22,7 +25,7 @@ const categories = [
 ]
 
 export default function SellPage() {
-  const { publicKey, connected } = useWallet()
+  const { publicKey, connected, signMessage } = useWallet()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const photosRef = useRef<ProductPhoto[]>([])
@@ -39,6 +42,8 @@ export default function SellPage() {
   const [location, setLocation] = useState('')
   const [notice, setNotice] = useState('')
   const [showPreview, setShowPreview] = useState(false)
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [published, setPublished] = useState(false)
 
   useEffect(() => {
     photosRef.current = photos
@@ -67,17 +72,17 @@ export default function SellPage() {
       return
     }
 
-    const imageFiles = selectedFiles.filter((file) =>
-      file.type.startsWith('image/'),
-    )
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
 
-    const validFiles = imageFiles.filter(
-      (file) => file.size <= 10 * 1024 * 1024,
+    const validFiles = selectedFiles.filter(
+      (file) =>
+        allowedTypes.includes(file.type) &&
+        file.size <= MAX_FILE_SIZE,
     )
 
     if (validFiles.length < selectedFiles.length) {
       setNotice(
-        'Some files were skipped. Select images smaller than 10 MB each.',
+        'Some files were skipped. Use JPEG, PNG, or WebP images no larger than 5 MB each.',
       )
     } else {
       setNotice('')
@@ -130,7 +135,14 @@ export default function SellPage() {
 
   function validateForm() {
     if (!connected || !publicKey) {
-      setNotice('Connect your Solana wallet before preparing your listing.')
+      setNotice('Connect your Solana wallet before publishing.')
+      return false
+    }
+
+    if (!signMessage) {
+      setNotice(
+        'Your connected wallet does not support message signing. Try Phantom or another compatible Solana wallet.',
+      )
       return false
     }
 
@@ -149,12 +161,19 @@ export default function SellPage() {
       return false
     }
 
-    if (!price.trim() || !Number.isFinite(Number(price)) || Number(price) <= 0) {
+    if (
+      !price.trim() ||
+      !Number.isFinite(Number(price)) ||
+      Number(price) <= 0
+    ) {
       setNotice('Enter a valid price greater than zero.')
       return false
     }
 
-    if (!Number.isInteger(Number(quantity)) || Number(quantity) < 1) {
+    if (
+      !Number.isSafeInteger(Number(quantity)) ||
+      Number(quantity) < 1
+    ) {
       setNotice('Quantity must be a whole number of at least 1.')
       return false
     }
@@ -180,10 +199,157 @@ export default function SellPage() {
     })
   }
 
-  function handleSubmit() {
-    setNotice(
-      'Your listing details are ready, but publishing is not connected yet. Supabase storage and database integration are required to save this product permanently.',
-    )
+  async function handleSubmit() {
+    if (isPublishing || published) return
+
+    setNotice('')
+
+    if (!validateForm()) return
+
+    if (!publicKey || !signMessage) {
+      setNotice('Reconnect a compatible Solana wallet and try again.')
+      return
+    }
+
+    setIsPublishing(true)
+
+    try {
+      const walletAddress = publicKey.toBase58()
+
+      // 1. Request a fresh wallet-verification challenge.
+      setNotice('Step 1 of 3: Requesting wallet verification...')
+
+      const challengeResponse = await fetch(
+        `${API_URL}/wallet/challenge`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ walletAddress }),
+        },
+      )
+
+      const challengeData = await challengeResponse.json()
+
+      if (!challengeResponse.ok) {
+        throw new Error(
+          challengeData.error ||
+            'Could not request wallet verification.',
+        )
+      }
+
+      if (
+        !challengeData.message ||
+        challengeData.walletAddress !== walletAddress
+      ) {
+        throw new Error(
+          'The server returned an invalid wallet challenge.',
+        )
+      }
+
+      // 2. Ask the wallet to sign the exact challenge message.
+      setNotice(
+        'Step 2 of 3: Please approve the wallet signature request.',
+      )
+
+      const messageBytes = new TextEncoder().encode(
+        challengeData.message,
+      )
+
+      const signatureBytes = await signMessage(messageBytes)
+
+      // Encode the signature as Base64 for the backend.
+      let binarySignature = ''
+
+      for (const byte of signatureBytes) {
+        binarySignature += String.fromCharCode(byte)
+      }
+
+      const signature = btoa(binarySignature)
+
+      // 3. Send the signed challenge, product fields, and photos.
+      setNotice(
+        'Step 3 of 3: Uploading photos and publishing your product...',
+      )
+
+      const formData = new FormData()
+
+      formData.append('walletAddress', walletAddress)
+      formData.append('challengeMessage', challengeData.message)
+      formData.append('signature', signature)
+
+      formData.append('name', productName.trim())
+      formData.append('description', description.trim())
+      formData.append('category', category)
+      formData.append('condition', condition)
+      formData.append('price', price)
+      formData.append('currency', currency)
+      formData.append('quantity', quantity)
+      formData.append('location', location.trim())
+
+      const coverIndex = Math.max(
+        0,
+        photos.findIndex((photo) => photo.id === coverId),
+      )
+
+      formData.append('coverIndex', String(coverIndex))
+
+      photos.forEach((photo) => {
+        formData.append('photos', photo.file)
+      })
+
+      const publishResponse = await fetch(`${API_URL}/products`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      const publishData = await publishResponse.json()
+
+      if (!publishResponse.ok) {
+        throw new Error(
+          publishData.error || 'Could not publish your product.',
+        )
+      }
+
+      if (!publishData.success || !publishData.product) {
+        throw new Error(
+          'The server did not confirm that the product was saved.',
+        )
+      }
+
+      setPublished(true)
+
+      setNotice(
+        `Success! "${publishData.product.name}" has been published and saved.`,
+      )
+
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      })
+    } catch (error) {
+      console.error('SolMart publishing error:', error)
+
+      if (error instanceof Error && error.name === 'AbortError') {
+        setNotice('The request was cancelled. Please try again.')
+      } else if (
+        error instanceof Error &&
+        /reject|declined|cancelled by user/i.test(error.message)
+      ) {
+        setNotice(
+          'You cancelled the wallet signature request. Your product has not been published.',
+        )
+      } else {
+        setNotice(
+          error instanceof Error
+            ? error.message
+            : 'Something went wrong while publishing your product.',
+        )
+      }
+    } finally {
+      setIsPublishing(false)
+    }
   }
 
   const coverPhoto =
@@ -461,7 +627,7 @@ export default function SellPage() {
 
               <p className="sell-help">
                 Add up to 10 photos of the same product. Each image must be
-                10 MB or smaller. Choose a cover photo to display first.
+                5 MB or smaller. Choose a cover photo to display first.
               </p>
 
               <div className="sell-photo-grid">
@@ -510,14 +676,17 @@ export default function SellPage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 multiple
                 onChange={handlePhotoSelection}
                 style={{ display: 'none' }}
               />
 
               {photos.length > 0 && (
-                <p className="sell-help" style={{ marginTop: 12, marginBottom: 0 }}>
+                <p
+                  className="sell-help"
+                  style={{ marginTop: 12, marginBottom: 0 }}
+                >
                   {photos.length} photo{photos.length === 1 ? '' : 's'} selected.
                   Tap “Set cover” to change the main image.
                 </p>
@@ -659,7 +828,9 @@ export default function SellPage() {
 
               <div className="sell-wallet">
                 <strong>Status: </strong>
-                {connected && publicKey ? 'Wallet connected' : 'Wallet not connected'}
+                {connected && publicKey
+                  ? 'Wallet connected'
+                  : 'Wallet not connected'}
                 <br />
 
                 <strong>Network: </strong>
@@ -671,7 +842,10 @@ export default function SellPage() {
               </div>
 
               {!connected && (
-                <p className="sell-help" style={{ marginTop: 12, marginBottom: 0 }}>
+                <p
+                  className="sell-help"
+                  style={{ marginTop: 12, marginBottom: 0 }}
+                >
                   Use the wallet button in the main SolMart header to connect
                   Phantom or Solflare.
                 </p>
@@ -688,10 +862,14 @@ export default function SellPage() {
           </>
         ) : (
           <>
-            <h1 className="sell-heading">Review your listing</h1>
+            <h1 className="sell-heading">
+              {published ? 'Product published' : 'Review your listing'}
+            </h1>
 
             <p className="sell-subtitle">
-              Check your product details before continuing.
+              {published
+                ? 'Your listing has been saved.'
+                : 'Check your product details before continuing.'}
             </p>
 
             <section className="sell-card">
@@ -719,10 +897,7 @@ export default function SellPage() {
 
               <p>Quantity: {quantity}</p>
               <p>Location: {location}</p>
-
-              <p>
-                Photos: {photos.length}
-              </p>
+              <p>Photos: {photos.length}</p>
 
               <div className="sell-photo-grid">
                 {photos.map((photo) => (
@@ -752,29 +927,37 @@ export default function SellPage() {
               </div>
             </section>
 
-            <button
-              type="button"
-              className="sell-secondary-button"
-              onClick={() => {
-                setShowPreview(false)
-                setNotice('')
-              }}
-            >
-              ← Edit listing
-            </button>
+            {!published && (
+              <>
+                <button
+                  type="button"
+                  className="sell-secondary-button"
+                  disabled={isPublishing}
+                  onClick={() => {
+                    setShowPreview(false)
+                    setNotice('')
+                  }}
+                >
+                  ← Edit listing
+                </button>
 
-            <button
-              type="button"
-              className="sell-primary-button"
-              onClick={handleSubmit}
-            >
-              Continue to publish
-            </button>
+                <button
+                  type="button"
+                  className="sell-primary-button"
+                  disabled={isPublishing || published}
+                  onClick={handleSubmit}
+                >
+                  {isPublishing
+                    ? 'Publishing your product...'
+                    : 'Continue to publish'}
+                </button>
+              </>
+            )}
           </>
         )}
 
         {notice && (
-          <div className="sell-notice" role="status">
+          <div className="sell-notice" role="status" aria-live="polite">
             {notice}
           </div>
         )}
@@ -788,9 +971,9 @@ export default function SellPage() {
             textAlign: 'center',
           }}
         >
-          SolMart is under development. Product publishing, permanent photo
-          storage, and payments are not connected yet. Never send funds to
-          complete this form.
+          Wallet verification uses a message signature and does not authorize
+          a blockchain transaction. Listing a product does not process payment
+          or create escrow.
         </p>
       </div>
     </main>
