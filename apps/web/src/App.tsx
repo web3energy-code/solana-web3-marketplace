@@ -21,7 +21,7 @@ import {
   Tag,
 } from 'lucide-react'
 
-type Page = 'marketplace' | 'sell' | 'messages' | 'profile'
+type Page = ‘marketplace’ | ‘sell’ | ‘messages’ | ‘profile’ | ‘wishlist’
 
 type Product = {
   id: string | number
@@ -1649,6 +1649,16 @@ function addToCart(id: string | number) {
           <span>Messages</span>
         </button>
 
+        <button
+          type=“button”
+          className={activePage === ‘wishlist’ ? ‘active’ : ‘’}
+          aria-current={activePage === ‘wishlist’ ? ‘page’ : undefined}
+          onClick={() => navigate(‘wishlist’)}
+        >
+          <Heart size={21} />
+          <span>Wishlist</span>
+        </button>
+        
         <button
           type="button"
           className={activePage === 'profile' ? 'active' : ''}
