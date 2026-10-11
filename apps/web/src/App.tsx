@@ -903,10 +903,10 @@ function addToCart(id: string | number) {
           right: 0;
           z-index: 20;
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(5, minmax(0, 1fr));
           background: #fff;
           border-top: 1px solid #e5e8e1;
-          padding: 9px 8px calc(9px + env(safe-area-inset-bottom));
+          padding: 7px 4px calc(7px + env(safe-area-inset-bottom));
         }
 
         .bottom-nav button {
@@ -917,11 +917,11 @@ function addToCart(id: string | number) {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 5px;
-          font-size: 10px;
+          gap: 3px;
+          font-size: 9px;
           font-weight: 600;
-          padding: 5px 2px;
-          min-width: 0;
+          padding: 4px 0;
+          min-width: 0; nowrap;
         }
 
         .bottom-nav button.active { color: #173d2c; }
