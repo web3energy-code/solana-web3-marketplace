@@ -1029,7 +1029,7 @@ function addToCart(id: string | number) {
       `}</style>
 
       <div className="topline">
-        Made in Nigeria 🇳🇬 &nbsp; · &nbsp;
+        Made in Nigeria ð³ð¬ &nbsp; Â· &nbsp;
         <b>Discover web3 sellers. Shop smarter.</b>
       </div>
 
@@ -1110,7 +1110,7 @@ function addToCart(id: string | number) {
 
                   <p>
                     Discover everyday essentials, fashion and gadgets from
-                    sellers across Nigeria—all in one place.
+                    sellers across Nigeriaâall in one place.
                   </p>
 
                   <button
@@ -1127,10 +1127,10 @@ function addToCart(id: string | number) {
 
                 <div className="heroart">
                   <div className="orbit">
-                    <span className="bagart">🛍️</span>
+                    <span className="bagart">ðï¸</span>
                   </div>
-                  <div className="floatpill pillone">✨ Local finds</div>
-                  <div className="floatpill pilltwo">🇳🇬 Made for you</div>
+                  <div className="floatpill pillone">â¨ Local finds</div>
+                  <div className="floatpill pilltwo">ð³ð¬ Made for you</div>
                 </div>
               </div>
             </section>
@@ -1146,7 +1146,7 @@ function addToCart(id: string | number) {
 
                 <span style={{ fontSize: 12, color: '#777' }}>
                   {loadingProducts
-                    ? 'Loading…'
+                    ? 'Loadingâ¦'
                     : `${filtered.length} products`}
                 </span>
               </div>
@@ -1283,13 +1283,13 @@ function addToCart(id: string | number) {
                                 verticalAlign: 'middle',
                               }}
                             />{' '}
-                            {product.location} · {product.condition}
+                            {product.location} Â· {product.condition}
                           </div>
 
                           <div className="productname">{product.name}</div>
 
                           <div className="rating">
-                            {product.category} · {product.quantity}{' '}
+                            {product.category} Â· {product.quantity}{' '}
                             available
                           </div>
 
@@ -1391,9 +1391,9 @@ function addToCart(id: string | number) {
                   <div>Your marketplace, made for Nigeria.</div>
                 </div>
 
-                <div>Electronics · Fashion · Beauty · Accessories</div>
+                <div>Electronics Â· Fashion Â· Beauty Â· Accessories</div>
 
-                <div>© 2026 SolMart.</div>
+                <div>Â© 2026 SolMart.</div>
               </div>
             </footer>
           </>
@@ -1415,7 +1415,7 @@ function addToCart(id: string | number) {
               <h3>No conversations yet</h3>
 
               <p>
-                Your buyer–seller conversations will appear here when the
+                Your buyerâseller conversations will appear here when the
                 messaging system is connected.
               </p>
 
@@ -1503,7 +1503,7 @@ function addToCart(id: string | number) {
 
             {cartCount === 0 ? (
               <div className="empty">
-                <span>🛍️</span>
+                <span>ðï¸</span>
                 <h3>Your cart is empty</h3>
 
                 <p>
