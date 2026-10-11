@@ -1650,7 +1650,7 @@ function addToCart(id: string | number) {
         </button>
 
         <button
-          type=“button”
+          type="button"
           className={activePage === 'wishlist' ? 'active' : ''}
           aria-current={activePage === 'wishlist' ? 'page' : undefined}
           onClick={() => navigate('wishlist')}
