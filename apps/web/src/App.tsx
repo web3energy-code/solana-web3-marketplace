@@ -93,7 +93,167 @@ export default function App() {
   const [profileMessage, setProfileMessage] = useState('')
   const [profileError, setProfileError] = useState('')
 
-  // Keep your existing App() code below this point.
+  // Load the connected seller's saved profile.
+useEffect(() => {
+  if (!connected || !publicKey) {
+    setSellerProfile(null)
+    setProfileFullName('')
+    setProfileUsername('')
+    setProfileImageUrl('')
+    setProfileLocation('')
+    setProfileBio('')
+    setProfileSellerType('individual')
+    return
+  }
+
+  let cancelled = false
+
+  async function loadSellerProfile() {
+    setProfileLoading(true)
+    setProfileError('')
+
+    try {
+      const walletAddress = publicKey!.toBase58()
+
+      const response = await fetch(
+        `${API_URL}/seller-profiles/${encodeURIComponent(walletAddress)}`,
+      )
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || 'Could not load your seller profile.',
+        )
+      }
+
+      if (cancelled) return
+
+      const profile = result.profile as SellerProfile | null
+
+      setSellerProfile(profile)
+      setProfileFullName(profile?.full_name ?? '')
+      setProfileUsername(profile?.username ?? '')
+      setProfileImageUrl(profile?.profile_image_url ?? '')
+      setProfileLocation(profile?.location ?? '')
+      setProfileBio(profile?.bio ?? '')
+      setProfileSellerType(profile?.seller_type ?? 'individual')
+    } catch (error) {
+      if (!cancelled) {
+        setProfileError(
+          error instanceof Error
+            ? error.message
+            : 'Could not load your seller profile.',
+        )
+      }
+    } finally {
+      if (!cancelled) {
+        setProfileLoading(false)
+      }
+    }
+  }
+
+  void loadSellerProfile()
+
+  return () => {
+    cancelled = true
+  }
+}, [connected, publicKey])
+
+// Save the seller profile after wallet verification.
+async function saveSellerProfile() {
+  if (!connected || !publicKey || !signMessage) {
+    setProfileError(
+      'Connect a wallet that supports message signing before saving your profile.',
+    )
+    return
+  }
+
+  setProfileSaving(true)
+  setProfileError('')
+  setProfileMessage('')
+
+  try {
+    const walletAddress = publicKey.toBase58()
+
+    // Request a wallet verification challenge.
+    const challengeResponse = await fetch(
+      `${API_URL}/wallet/challenge`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ walletAddress }),
+      },
+    )
+
+    const challengeResult = await challengeResponse.json()
+
+    if (!challengeResponse.ok || !challengeResult.success) {
+      throw new Error(
+        challengeResult.error || 'Could not verify your wallet.',
+      )
+    }
+
+    // Ask the wallet to sign the verification message.
+    const messageBytes = new TextEncoder().encode(
+      challengeResult.message,
+    )
+
+    const signature = await signMessage(messageBytes)
+
+    // Convert the signature to Base64 for the backend.
+    let binarySignature = ''
+
+    for (const byte of signature) {
+      binarySignature += String.fromCharCode(byte)
+    }
+
+    const signatureBase64 = btoa(binarySignature)
+
+    // Save the profile on the server.
+    const saveResponse = await fetch(
+      `${API_URL}/seller-profiles`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          walletAddress,
+          challengeMessage: challengeResult.message,
+          signature: signatureBase64,
+          full_name: profileFullName,
+          username: profileUsername,
+          profile_image_url: profileImageUrl,
+          location: profileLocation,
+          bio: profileBio,
+          seller_type: profileSellerType,
+        }),
+      },
+    )
+
+    const saveResult = await saveResponse.json()
+
+    if (!saveResponse.ok || !saveResult.success) {
+      throw new Error(
+        saveResult.error || 'Could not save your seller profile.',
+      )
+    }
+
+    setSellerProfile(saveResult.profile)
+    setProfileMessage('Your seller profile has been saved successfully.')
+  } catch (error) {
+    setProfileError(
+      error instanceof Error
+        ? error.message
+        : 'Could not save your seller profile.',
+    )
+  } finally {
+    setProfileSaving(false)
+  }
+}
 
   const [activePage, setActivePage] = useState<Page>('marketplace')
   const [search, setSearch] = useState('')
