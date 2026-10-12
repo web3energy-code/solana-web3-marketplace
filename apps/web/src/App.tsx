@@ -1233,9 +1233,10 @@ function addToCart(id: string | number) {
                         className="card"
                         key={product.id}
                         onClick={() => {
+                          alert('Product clicked: ' + product.name)
                           setSelectedProduct(product)
                           navigate('product-details')
-                         }}
+                        }}
                           style={{ cursor: 'pointer' }}
                       >
 
