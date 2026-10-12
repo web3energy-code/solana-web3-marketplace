@@ -28,6 +28,8 @@ type Page =
   | 'profile'
   | 'wishlist'
   | 'product-details'
+  | 'seller-profile'
+
 
 type SellerProfile = {
   seller_wallet: string
