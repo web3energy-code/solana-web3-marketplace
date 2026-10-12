@@ -411,6 +411,50 @@ useEffect(() => {
   const [showCart, setShowCart] = useState(false)
   const [notice, setNotice] = useState('')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+    // Public seller profiles (picture, name, username) for product and seller pages.
+  const [sellerProfiles, setSellerProfiles] = useState<
+    Record<string, SellerProfile | null>
+  >({})
+  const [viewedSellerWallet, setViewedSellerWallet] = useState('')
+
+  useEffect(() => {
+    const wallet =
+      activePage === 'product-details'
+        ? selectedProduct?.seller_wallet
+        : activePage === 'seller-profile'
+          ? viewedSellerWallet
+          : ''
+
+    if (!wallet) return
+
+    let cancelled = false
+
+    fetch(`${API_URL}/seller-profiles/${encodeURIComponent(wallet)}`)
+      .then((response) => response.json())
+      .then((result) => {
+        if (cancelled) return
+
+        setSellerProfiles((previous) => ({
+          ...previous,
+          [wallet]: result?.success ? (result.profile ?? null) : null,
+        }))
+      })
+      .catch(() => {
+        if (cancelled) return
+
+        setSellerProfiles((previous) => ({ ...previous, [wallet]: null }))
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [activePage, selectedProduct?.seller_wallet, viewedSellerWallet])
+
+  function openSellerProfile(wallet: string) {
+    setViewedSellerWallet(wallet)
+    navigate('seller-profile')
+  }
+
   const [wishlist, setWishlist] = useState<string[]>(() => {
   try {
     const saved = localStorage.getItem('solmart-wishlist')
@@ -1922,6 +1966,93 @@ function addToCart(id: string | number) {
           }}
         >
           <h3 style={{ marginTop: 0 }}>Seller information</h3>
+           {(() => {
+            const profile = sellerProfiles[selectedProduct.seller_wallet]
+            const loadingProfile = profile === undefined
+            const displayName =
+              profile?.full_name ||
+              (loadingProfile ? 'Loading seller…' : 'SolMart seller')
+
+            return (
+              <>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
+                    margin: '4px 0 14px',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 60,
+                      height: 60,
+                      flex: '0 0 60px',
+                      borderRadius: '50%',
+                      overflow: 'hidden',
+                      background: '#eef1e8',
+                      display: 'grid',
+                      placeItems: 'center',
+                      fontWeight: 800,
+                      color: '#173d2c',
+                    }}
+                  >
+                    {profile?.profile_image_url ? (
+                      <img
+                        src={profile.profile_image_url}
+                        alt={displayName}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                        }}
+                      />
+                    ) : (
+                      (profile?.full_name || selectedProduct.seller_wallet || '?')
+                        .slice(0, 2)
+                        .toUpperCase()
+                    )}
+                  </div>
+
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: 17 }}>
+                      {displayName}
+                    </div>
+
+                    {profile?.username && (
+                      <div style={{ color: '#6f766a', fontSize: 13 }}>
+                        @{profile.username}
+                      </div>
+                    )}
+
+                    {profile?.location && (
+                      <div style={{ color: '#6f766a', fontSize: 12 }}>
+                        {profile.location}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {profile === null && (
+                  <p className="sub" style={{ marginTop: 0 }}>
+                    This seller has not set up a profile yet.
+                  </p>
+                )}
+
+                <button
+                  className="addbtn"
+                  style={{ marginBottom: 14 }}
+                  onClick={() =>
+                    openSellerProfile(selectedProduct.seller_wallet)
+                  }
+                >
+                  <User size={16} />
+                  View seller profile
+                </button>
+              </>
+            )
+          })()}
+
 
           <div className="profile-label">Seller wallet address</div>
 
@@ -2067,6 +2198,204 @@ function addToCart(id: string | number) {
     </div>
   </section>
 )}
+
+            {activePage === 'seller-profile' &&
+          viewedSellerWallet &&
+          (() => {
+            const profile = sellerProfiles[viewedSellerWallet]
+            const sellerProducts = products.filter(
+              (product) => product.seller_wallet === viewedSellerWallet,
+            )
+            const name =
+              profile?.full_name ||
+              (profile === undefined ? 'Loading seller…' : 'SolMart seller')
+
+            return (
+              <section className="section" style={{ paddingBottom: 100 }}>
+                <button
+                  className="addbtn"
+                  style={{ width: 'auto', padding: '10px 16px', marginBottom: 24 }}
+                  onClick={() =>
+                    navigate(selectedProduct ? 'product-details' : 'marketplace')
+                  }
+                >
+                  ← Back
+                </button>
+
+                <div
+                  style={{
+                    padding: 22,
+                    border: '1px solid #e5e8e1',
+                    borderRadius: 18,
+                    display: 'flex',
+                    gap: 18,
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 92,
+                      height: 92,
+                      flex: '0 0 92px',
+                      borderRadius: '50%',
+                      overflow: 'hidden',
+                      background: '#eef1e8',
+                      display: 'grid',
+                      placeItems: 'center',
+                      fontWeight: 800,
+                      fontSize: 24,
+                      color: '#173d2c',
+                    }}
+                  >
+                    {profile?.profile_image_url ? (
+                      <img
+                        src={profile.profile_image_url}
+                        alt={name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                        }}
+                      />
+                    ) : (
+                      (profile?.full_name || viewedSellerWallet)
+                        .slice(0, 2)
+                        .toUpperCase()
+                    )}
+                  </div>
+
+                  <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+                    <h1 style={{ fontSize: 26, margin: 0, letterSpacing: '-.5px' }}>
+                      {name}
+                    </h1>
+
+                    {profile?.username && (
+                      <div style={{ color: '#6f766a', marginTop: 2 }}>
+                        @{profile.username}
+                      </div>
+                    )}
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '6px 14px',
+                        marginTop: 10,
+                        fontSize: 13,
+                        color: '#5c6358',
+                      }}
+                    >
+                      {profile && (
+                        <span>
+                          {profile.seller_type === 'business'
+                            ? 'Business seller'
+                            : 'Individual seller'}
+                        </span>
+                      )}
+
+                      {profile?.location && <span>📍 {profile.location}</span>}
+
+                      <span>
+                        Wallet {viewedSellerWallet.slice(0, 4)}...
+                        {viewedSellerWallet.slice(-4)}
+                      </span>
+
+                      {profile?.created_at && (
+                        <span>
+                          Member since{' '}
+                          {new Date(profile.created_at).toLocaleDateString(
+                            'en-US',
+                            { month: 'short', year: 'numeric' },
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {profile?.bio && (
+                  <p
+                    style={{
+                      marginTop: 18,
+                      lineHeight: 1.7,
+                      fontSize: 14,
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
+                    {profile.bio}
+                  </p>
+                )}
+
+                {profile === null && (
+                  <p className="sub" style={{ marginTop: 18 }}>
+                    This seller has not set up a profile yet.
+                  </p>
+                )}
+
+                <div style={{ marginTop: 36 }}>
+                  <div className="sectionhead">
+                    <div>
+                      <h2>Listings from {profile?.full_name || 'this seller'}</h2>
+                      <div className="sub">
+                        {sellerProducts.length}{' '}
+                        {sellerProducts.length === 1 ? 'product' : 'products'}{' '}
+                        listed
+                      </div>
+                    </div>
+                  </div>
+
+                  {sellerProducts.length === 0 ? (
+                    <p style={{ color: '#777', fontSize: 13 }}>
+                      This seller has no active listings right now.
+                    </p>
+                  ) : (
+                    <div className="grid">
+                      {sellerProducts.map((product) => (
+                        <article
+                          className="card"
+                          key={product.id}
+                          onClick={() => {
+                            setSelectedProduct(product)
+                            navigate('product-details')
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <div className="productvisual">
+                            {product.image_urls?.[0] ? (
+                              <img
+                                src={product.image_urls[0]}
+                                alt={product.name}
+                                loading="lazy"
+                              />
+                            ) : (
+                              <Package size={40} color="#8b9684" />
+                            )}
+                          </div>
+
+                          <div className="productbody">
+                            <div className="productname">{product.name}</div>
+
+                            <div className="rating">
+                              {product.quantity > 0
+                                ? `${product.quantity} available`
+                                : 'Out of stock'}
+                            </div>
+
+                            <div className="price">
+                              {money(product.price, product.currency)}
+                            </div>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </section>
+            )
+          })()}
+
+
         
         {activePage === 'sell' && <SellPage />}
 
