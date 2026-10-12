@@ -1950,54 +1950,457 @@ function addToCart(id: string | number) {
         )}
 
         {activePage === 'profile' && (
-          <section className="page-placeholder">
-            <h1>My Profile</h1>
+  <section className="section" style={{ paddingBottom: 100 }}>
+    <div style={{ maxWidth: 760, margin: '0 auto' }}>
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 32, letterSpacing: '-1px' }}>
+          My Seller Profile
+        </h1>
 
-            <p className="sub">
-              Manage your SolMart profile and view your connected wallet.
+        <p className="sub">
+          Create your seller identity on SolMart. Your profile helps buyers
+          learn about you before purchasing your products.
+        </p>
+      </div>
+
+      {/* WALLET STATUS */}
+      <div
+        className="page-placeholder-card"
+        style={{ marginBottom: 24 }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
+          }}
+        >
+          <div className="profile-avatar">
+            <User size={28} />
+          </div>
+
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <h3 style={{ margin: '0 0 6px' }}>
+              {connected ? 'Wallet connected' : 'Connect your wallet'}
+            </h3>
+
+            <p className="sub" style={{ margin: 0 }}>
+              {connected
+                ? 'Your seller profile is associated with this wallet.'
+                : 'Connect Phantom or Solflare to create or edit your profile.'}
             </p>
+          </div>
+        </div>
 
-            <div className="page-placeholder-card">
-              <div className="profile-avatar">
-                <User size={32} />
-              </div>
+        <div className="profile-label" style={{ marginTop: 20 }}>
+          Wallet address
+        </div>
 
-              <h2 style={{ marginTop: 0 }}>
-                {connected ? 'Wallet connected' : 'Welcome to SolMart'}
-              </h2>
+        <div
+          className="profile-value"
+          style={{
+            overflowWrap: 'anywhere',
+            wordBreak: 'break-word',
+          }}
+        >
+          {publicKey
+            ? publicKey.toBase58()
+            : 'No wallet connected'}
+        </div>
 
-              <p>
-                {connected
-                  ? 'Your Solana wallet is connected to this session.'
-                  : 'Connect Phantom or Solflare using the wallet button above.'}
-              </p>
+        <div className="profile-label">Published products</div>
 
-              <div className="profile-label">Wallet status</div>
-              <div className="profile-value">
-                {connected ? 'Connected' : 'Not connected'}
-              </div>
+        <div className="profile-value">
+          {products.filter(
+            (product) =>
+              product.seller_wallet === publicKey?.toBase58(),
+          ).length}{' '}
+          products associated with your connected wallet.
+        </div>
+      </div>
 
-              <div className="profile-label">Wallet address</div>
-              <div className="profile-value">
-                {publicKey
-                  ? publicKey.toBase58()
-                  : 'Connect your wallet to display your address.'}
-              </div>
+      {/* PROFILE FORM */}
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          void saveSellerProfile()
+        }}
+        className="page-placeholder-card"
+        style={{ padding: 24 }}
+      >
+        <h2 style={{ marginTop: 0 }}>
+          Seller details
+        </h2>
 
-              <div className="profile-label">Marketplace products</div>
-              <div className="profile-value">
-                {products.length} published{' '}
-                {products.length === 1 ? 'product' : 'products'} currently
-                available.
-              </div>
+        <p className="sub">
+          Complete your details and save them to your seller profile.
+        </p>
 
-              <div className="profile-label">Payment status</div>
-              <div className="profile-value">
-                Real checkout and on-chain payments are not connected yet.
-              </div>
+        {/* PROFILE PICTURE */}
+        <div style={{ marginTop: 24, marginBottom: 24 }}>
+          <label
+            htmlFor="profileImageUrl"
+            className="profile-label"
+            style={{ display: 'block', marginBottom: 10 }}
+          >
+            Profile picture URL
+          </label>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              marginBottom: 14,
+            }}
+          >
+            <div
+              style={{
+                width: 76,
+                height: 76,
+                borderRadius: '50%',
+                border: '1px solid #e5e8e1',
+                background: '#f4f6f0',
+                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              {profileImageUrl.trim() ? (
+                <img
+                  src={profileImageUrl.trim()}
+                  alt="Seller profile"
+                  onError={(event) => {
+                    event.currentTarget.style.display = 'none'
+                  }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                  }}
+                />
+              ) : (
+                <User size={32} color="#8b9684" />
+              )}
             </div>
-          </section>
+
+            <div className="sub">
+              Add an image URL beginning with HTTPS to display your profile
+              picture.
+            </div>
+          </div>
+
+          <input
+            id="profileImageUrl"
+            type="url"
+            value={profileImageUrl}
+            onChange={(event) =>
+              setProfileImageUrl(event.target.value)
+            }
+            placeholder="https://example.com/profile.jpg"
+            disabled={!connected || profileLoading || profileSaving}
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              padding: 13,
+              border: '1px solid #e5e8e1',
+              borderRadius: 10,
+              font: 'inherit',
+            }}
+          />
+        </div>
+
+        {/* FULL NAME */}
+        <div style={{ marginBottom: 20 }}>
+          <label
+            htmlFor="profileFullName"
+            className="profile-label"
+            style={{ display: 'block', marginBottom: 8 }}
+          >
+            Full name
+          </label>
+
+          <input
+            id="profileFullName"
+            type="text"
+            value={profileFullName}
+            onChange={(event) =>
+              setProfileFullName(event.target.value)
+            }
+            placeholder="Enter your full name"
+            maxLength={100}
+            required
+            disabled={!connected || profileLoading || profileSaving}
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              padding: 13,
+              border: '1px solid #e5e8e1',
+              borderRadius: 10,
+              font: 'inherit',
+            }}
+          />
+        </div>
+
+        {/* USERNAME */}
+        <div style={{ marginBottom: 20 }}>
+          <label
+            htmlFor="profileUsername"
+            className="profile-label"
+            style={{ display: 'block', marginBottom: 8 }}
+          >
+            Username
+          </label>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              border: '1px solid #e5e8e1',
+              borderRadius: 10,
+              overflow: 'hidden',
+            }}
+          >
+            <span style={{ paddingLeft: 13, color: '#777' }}>
+              @
+            </span>
+
+            <input
+              id="profileUsername"
+              type="text"
+              value={profileUsername}
+              onChange={(event) =>
+                setProfileUsername(
+                  event.target.value
+                    .replace(/^@/, '')
+                    .toLowerCase(),
+                )
+              }
+              placeholder="yourusername"
+              maxLength={30}
+              disabled={!connected || profileLoading || profileSaving}
+              style={{
+                width: '100%',
+                minWidth: 0,
+                padding: 13,
+                border: 'none',
+                outline: 'none',
+                font: 'inherit',
+              }}
+            />
+          </div>
+
+          <p className="sub" style={{ marginTop: 7 }}>
+            Use lowercase letters, numbers, and underscores. Usernames must
+            be unique.
+          </p>
+        </div>
+
+        {/* LOCATION */}
+        <div style={{ marginBottom: 20 }}>
+          <label
+            htmlFor="profileLocation"
+            className="profile-label"
+            style={{ display: 'block', marginBottom: 8 }}
+          >
+            Location
+          </label>
+
+          <input
+            id="profileLocation"
+            type="text"
+            value={profileLocation}
+            onChange={(event) =>
+              setProfileLocation(event.target.value)
+            }
+            placeholder="e.g. Owerri, Imo State"
+            maxLength={150}
+            disabled={!connected || profileLoading || profileSaving}
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              padding: 13,
+              border: '1px solid #e5e8e1',
+              borderRadius: 10,
+              font: 'inherit',
+            }}
+          />
+        </div>
+
+        {/* SELLER TYPE */}
+        <div style={{ marginBottom: 20 }}>
+          <label
+            htmlFor="profileSellerType"
+            className="profile-label"
+            style={{ display: 'block', marginBottom: 8 }}
+          >
+            Seller type
+          </label>
+
+          <select
+            id="profileSellerType"
+            value={profileSellerType}
+            onChange={(event) =>
+              setProfileSellerType(
+                event.target.value as 'individual' | 'business',
+              )
+            }
+            disabled={!connected || profileLoading || profileSaving}
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              padding: 13,
+              border: '1px solid #e5e8e1',
+              borderRadius: 10,
+              background: '#fff',
+              font: 'inherit',
+            }}
+          >
+            <option value="individual">Individual seller</option>
+            <option value="business">Business seller</option>
+          </select>
+        </div>
+
+        {/* BIO */}
+        <div style={{ marginBottom: 24 }}>
+          <label
+            htmlFor="profileBio"
+            className="profile-label"
+            style={{ display: 'block', marginBottom: 8 }}
+          >
+            About you
+          </label>
+
+          <textarea
+            id="profileBio"
+            value={profileBio}
+            onChange={(event) =>
+              setProfileBio(event.target.value)
+            }
+            placeholder="Tell buyers about yourself, your business, and what you sell..."
+            maxLength={1000}
+            rows={5}
+            disabled={!connected || profileLoading || profileSaving}
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              padding: 13,
+              border: '1px solid #e5e8e1',
+              borderRadius: 10,
+              resize: 'vertical',
+              font: 'inherit',
+              lineHeight: 1.6,
+            }}
+          />
+
+          <div
+            className="sub"
+            style={{ textAlign: 'right', marginTop: 5 }}
+          >
+            {profileBio.length}/1000 characters
+          </div>
+        </div>
+
+        {/* STATUS MESSAGES */}
+        {profileLoading && (
+          <p className="sub">
+            Loading your saved seller profile...
+          </p>
         )}
+
+        {profileError && (
+          <div
+            role="alert"
+            style={{
+              background: '#fdeaea',
+              color: '#b42318',
+              padding: 12,
+              borderRadius: 10,
+              marginBottom: 16,
+              fontSize: 13,
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {profileError}
+          </div>
+        )}
+
+        {profileMessage && (
+          <div
+            role="status"
+            style={{
+              background: '#eff7e4',
+              color: '#28583d',
+              padding: 12,
+              borderRadius: 10,
+              marginBottom: 16,
+              fontSize: 13,
+            }}
+          >
+            {profileMessage}
+          </div>
+        )}
+
+        {/* SAVE BUTTON */}
+        <button
+          type="submit"
+          className="primary"
+          disabled={
+            !connected ||
+            !signMessage ||
+            profileLoading ||
+            profileSaving
+          }
+          style={{
+            width: '100%',
+            justifyContent: 'center',
+            opacity:
+              !connected ||
+              !signMessage ||
+              profileLoading ||
+              profileSaving
+                ? 0.6
+                : 1,
+            cursor:
+              !connected ||
+              !signMessage ||
+              profileLoading ||
+              profileSaving
+                ? 'not-allowed'
+                : 'pointer',
+          }}
+        >
+          {profileSaving
+            ? 'Saving profile...'
+            : sellerProfile
+              ? 'Save Profile Changes'
+              : 'Create Seller Profile'}
+        </button>
+
+        {!connected && (
+          <p
+            className="sub"
+            style={{ textAlign: 'center', marginTop: 14 }}
+          >
+            Connect your Solana wallet before saving your profile.
+          </p>
+        )}
+
+        {connected && !signMessage && (
+          <p
+            className="sub"
+            style={{ textAlign: 'center', marginTop: 14 }}
+          >
+            Your connected wallet does not support message signing.
+            Try a compatible wallet.
+          </p>
+        )}
+      </form>
+    </div>
+  </section>
+)}
 
                 {activePage === 'wishlist' && (
           <section className="section" style={{ paddingBottom: 100 }}>
