@@ -43,6 +43,75 @@ type SellerProfile = {
   updated_at?: string
 }
 
+const MESSAGING_API = 'https://solana-web3-marketplace-3et8w.vercel.app'
+
+async function createMessagingAuth(
+  walletAddress: string,
+  signMessage: (message: Uint8Array) => Promise<Uint8Array>,
+) {
+  const challengeResponse = await fetch(
+    `${MESSAGING_API}/wallet/challenge`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        walletAddress,
+        purpose: 'messaging',
+      }),
+    },
+  )
+
+  const challengeData = await challengeResponse.json()
+
+  if (!challengeResponse.ok || !challengeData.message) {
+    throw new Error(
+      challengeData.error || 'Could not verify your wallet.',
+    )
+  }
+
+  const message = challengeData.message as string
+  const signature = await signMessage(
+    new TextEncoder().encode(message),
+  )
+
+  let binarySignature = ''
+
+  for (const byte of signature) {
+    binarySignature += String.fromCharCode(byte)
+  }
+
+  return {
+    walletAddress,
+    challengeMessage: message,
+    signature: btoa(binarySignature),
+  }
+}
+
+async function messagingRequest(
+  endpoint: string,
+  walletAddress: string,
+  signMessage: (message: Uint8Array) => Promise<Uint8Array>,
+  data: Record<string, unknown> = {},
+) {
+  const auth = await createMessagingAuth(walletAddress, signMessage)
+
+  const response = await fetch(`${MESSAGING_API}/messages${endpoint}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...auth,
+      ...data,
+    }),
+  })
+
+  const result = await response.json()
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.error || 'Messaging request failed.')
+  }
+
+  return result
+}
 type Product = {
   id: string | number
   name: string
@@ -2077,15 +2146,53 @@ function addToCart(id: string | number) {
 
           <button
             className="addbtn"
-            onClick={() =>
-              showNotice(
-                'Seller messaging is not connected yet.',
-              )
-            }
-          >
-            <MessageCircle size={16} />
-            Message Seller
-          </button>
+            onClick={async () => {
+         if (!connected || !publicKey) {
+           showNotice('Connect your Solana wallet to message this seller.')
+         return
+       }
+
+         if (!signMessage) {
+          showNotice('Your wallet does not support message signing.')
+        return
+      }
+
+       if (!selectedProduct.seller_wallet) {
+         showNotice('Seller wallet is unavailable.')
+       return
+     }
+
+    if (selectedProduct.seller_wallet === publicKey.toBase58()) {
+      showNotice('You cannot message yourself about your own product.')
+      return
+    }
+
+    try {
+      const result = await messagingRequest(
+        '/conversations/start',
+        publicKey.toBase58(),
+        signMessage,
+        { productId: String(selectedProduct.id) },
+      )
+
+      if (result.conversation?.id) {
+        setActivePage('messages')
+        showNotice('Conversation started successfully.')
+      } else {
+        showNotice('Could not start the conversation.')
+      }
+    } catch (error) {
+      showNotice(
+        error instanceof Error
+          ? error.message
+          : 'Could not start the conversation.',
+      )
+    }
+  }}
+>
+  <MessageCircle size={16} />
+  Message Seller
+</button>
         </div>
 
         {/* REVIEWS */}
@@ -2415,7 +2522,7 @@ function addToCart(id: string | number) {
               <h3>No conversations yet</h3>
 
               <p>
-                Your buyerâseller conversations will appear here when the
+                Your buyer and seller conversations will appear here when the
                 messaging system is connected.
               </p>
 
