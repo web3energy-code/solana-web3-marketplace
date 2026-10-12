@@ -12,6 +12,7 @@ export interface WalletChallenge {
 
 export async function createWalletChallenge(
   walletAddress: string,
+  purpose: 'listing' | 'seller_profile' = 'listing',
 ): Promise<WalletChallenge> {
   let publicKey: PublicKey
 
@@ -22,6 +23,10 @@ export async function createWalletChallenge(
   }
 
   const normalizedWallet = publicKey.toBase58()
+  const purposeText =
+  purpose === 'seller_profile'
+    ? 'Verify wallet ownership to create or update a seller profile.'
+    : 'Verify wallet ownership to publish a marketplace listing.'
   const nonce = randomBytes(32).toString('hex')
   const createdAt = new Date()
   const expiresAt = new Date(
@@ -34,7 +39,7 @@ export async function createWalletChallenge(
     `Nonce: ${nonce}`,
     `Issued At: ${createdAt.toISOString()}`,
     `Expiration Time: ${expiresAt.toISOString()}`,
-    'Purpose: Verify wallet ownership to publish a marketplace listing.',
+    `Purpose: ${purposeText}`,,
     'This signature does not authorize a blockchain transaction.',
   ].join('\n')
 
