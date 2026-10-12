@@ -66,10 +66,11 @@ app.post('/wallet/challenge', async (req: Request, res: Response) => {
     return
   }
 
-  if (
+    if (
     requestedPurpose !== undefined &&
     requestedPurpose !== 'listing' &&
-    requestedPurpose !== 'seller_profile'
+    requestedPurpose !== 'seller_profile' &&
+    requestedPurpose !== 'messaging'
   ) {
     res.status(400).json({
       error: 'Invalid wallet challenge purpose.',
