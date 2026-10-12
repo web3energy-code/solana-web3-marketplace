@@ -109,6 +109,13 @@ useEffect(() => {
     setProfileFullName('')
     setProfileUsername('')
     setProfileImageUrl('')
+    setProfileImageFile(null)
+    setProfileImagePreview((previous) => {
+ if (previous.startsWith('blob:')) {
+   URL.revokeObjectURL(previous)
+  }
+  return ''
+})
     setProfileLocation('')
     setProfileBio('')
     setProfileSellerType('individual')
@@ -204,19 +211,115 @@ useEffect(() => {
 
 // Save the seller profile after wallet verification.
     async function saveSellerProfile() {
-    if (!connected || !publicKey || !signMessage) {
+  if (!connected || !publicKey || !signMessage) {
     setProfileError(
-    'Connect a wallet that supports message signing before saving your profile.',
-  )
-   return
+      'Connect a wallet that supports message signing before saving your profile.',
+    )
+    return
   }
 
-     setProfileSaving(true)
-     setProfileError('')
-     setProfileMessage('')
-     try {
-       const walletAddress = publicKey.toBase58()
-    // Request a wallet verification challenge.
+  setProfileSaving(true)
+  setProfileError('')
+  setProfileMessage('')
+
+  try {
+    const walletAddress = publicKey.toBase58()
+    let finalProfileImageUrl = profileImageUrl
+
+    // Upload a newly selected profile picture first.
+    if (profileImageFile) {
+      setProfileImageUploading(true)
+
+      try {
+        // Request a fresh challenge for the image upload.
+        const uploadChallengeResponse = await fetch(
+          `${API_URL}/wallet/challenge`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              walletAddress,
+              purpose: 'seller_profile',
+            }),
+          },
+        )
+
+        const uploadChallengeResult =
+          await uploadChallengeResponse.json()
+
+        if (
+          !uploadChallengeResponse.ok ||
+          !uploadChallengeResult.success
+        ) {
+          throw new Error(
+            uploadChallengeResult.error ||
+              'Could not verify your wallet for image upload.',
+          )
+        }
+
+        // Sign the upload challenge.
+        const uploadMessageBytes = new TextEncoder().encode(
+          uploadChallengeResult.message,
+        )
+
+        const uploadSignature = await signMessage(
+          uploadMessageBytes,
+        )
+
+        let uploadBinarySignature = ''
+
+        for (const byte of uploadSignature) {
+          uploadBinarySignature += String.fromCharCode(byte)
+        }
+
+        const uploadSignatureBase64 = btoa(
+          uploadBinarySignature,
+        )
+
+        // Send the image and wallet verification details.
+        const formData = new FormData()
+
+        formData.append('image', profileImageFile)
+        formData.append('walletAddress', walletAddress)
+        formData.append(
+          'challengeMessage',
+          uploadChallengeResult.message,
+        )
+        formData.append('signature', uploadSignatureBase64)
+
+        const uploadResponse = await fetch(
+          `${API_URL}/seller-profiles/image`,
+          {
+            method: 'POST',
+            body: formData,
+          },
+        )
+
+        const uploadResult = await uploadResponse.json()
+
+        if (!uploadResponse.ok || !uploadResult.success) {
+          throw new Error(
+            uploadResult.error ||
+              'Could not upload your profile picture.',
+          )
+        }
+
+        if (typeof uploadResult.imageUrl !== 'string') {
+          throw new Error(
+            'The server did not return a valid profile image URL.',
+          )
+        }
+
+        finalProfileImageUrl = uploadResult.imageUrl
+        setProfileImageUrl(finalProfileImageUrl)
+      } finally {
+        setProfileImageUploading(false)
+      }
+    }
+
+    // Request a separate challenge to save the seller profile.
     const challengeResponse = await fetch(
       `${API_URL}/wallet/challenge`,
       {
@@ -235,18 +338,18 @@ useEffect(() => {
 
     if (!challengeResponse.ok || !challengeResult.success) {
       throw new Error(
-        challengeResult.error || 'Could not verify your wallet.',
+        challengeResult.error ||
+          'Could not verify your wallet to save your profile.',
       )
     }
 
-    // Ask the wallet to sign the verification message.
+    // Sign the profile-saving challenge.
     const messageBytes = new TextEncoder().encode(
       challengeResult.message,
     )
 
     const signature = await signMessage(messageBytes)
 
-    // Convert the signature to Base64 for the backend.
     let binarySignature = ''
 
     for (const byte of signature) {
@@ -255,7 +358,7 @@ useEffect(() => {
 
     const signatureBase64 = btoa(binarySignature)
 
-    // Save the profile on the server.
+    // Save the profile, including the uploaded image URL.
     const saveResponse = await fetch(
       `${API_URL}/seller-profiles`,
       {
@@ -269,7 +372,7 @@ useEffect(() => {
           signature: signatureBase64,
           full_name: profileFullName,
           username: profileUsername,
-          profile_image_url: profileImageUrl,
+          profile_image_url: finalProfileImageUrl,
           location: profileLocation,
           bio: profileBio,
           seller_type: profileSellerType,
@@ -286,7 +389,10 @@ useEffect(() => {
     }
 
     setSellerProfile(saveResult.profile)
-    setProfileMessage('Your seller profile has been saved successfully.')
+    setProfileImageFile(null)
+    setProfileMessage(
+      'Your seller profile has been saved successfully.',
+    )
   } catch (error) {
     setProfileError(
       error instanceof Error
