@@ -147,17 +147,19 @@ router.put('/', async (req: Request, res: Response) => {
     let signatureBytes: Uint8Array
 
     try {
-      signatureBytes = Buffer.from(signature, 'base64')
+      const decodedSignature = Buffer.from(signature, 'base64')
 
       if (
-        signatureBytes.length !== 64 ||
-        signatureBytes.toString('base64') !== signature
-      ) {
+        decodedSignature.length !== 64 ||
+        decodedSignature.toString('base64') !== signature
+     ) {
         return sendError(res, 400, 'Invalid wallet signature format.')
-      }
-    } catch {
-      return sendError(res, 400, 'Invalid wallet signature.')
-    }
+     }
+
+     signatureBytes = decodedSignature
+   } catch {
+     return sendError(res, 400, 'Invalid wallet signature.')
+   }
 
     const supabase = getSupabaseClient()
 
