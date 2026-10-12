@@ -182,6 +182,19 @@ router.put('/', async (req: Request, res: Response) => {
       )
     }
 
+    // Only accept challenges created specifically for seller profiles.
+if (
+  !challengeMessage.includes(
+    'Purpose: Verify wallet ownership to create or update a seller profile.',
+  )
+) {
+  return sendError(
+    res,
+    401,
+    'A seller profile verification challenge is required.',
+  )
+}
+    
     if (challenge.used_at) {
       return sendError(
         res,
