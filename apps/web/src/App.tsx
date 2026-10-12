@@ -2239,23 +2239,83 @@ function addToCart(id: string | number) {
           </div>
 
           <input
-            id="profileImageUrl"
-            type="url"
-            value={profileImageUrl}
-            onChange={(event) =>
-              setProfileImageUrl(event.target.value)
-            }
-            placeholder="https://example.com/profile.jpg"
-            disabled={!connected || profileLoading || profileSaving}
-            style={{
-              width: '100%',
-              boxSizing: 'border-box',
-              padding: 13,
-              border: '1px solid #e5e8e1',
-              borderRadius: 10,
-              font: 'inherit',
-            }}
-          />
+             ref={profileImageInputRef}
+             id="profileImageFile"
+             type="file"
+             accept="image/jpeg,image/png,image/webp,image/gif"
+             onChange={handleProfileImageChange}
+             disabled={!connected || profileLoading || profileSaving || profileImageUploading}
+             style={{ display: 'none' }}
+       />
+
+       <div
+         style={{
+           display: 'flex',
+           alignItems: 'center',
+           gap: 14,
+           flexWrap: 'wrap',
+           marginTop: 12,
+         }}
+       >
+         {profileImagePreview || profileImageUrl ? (
+           <img
+             src={profileImagePreview || profileImageUrl}
+             alt="Seller profile preview"
+             style={{
+               width: 84,
+               height: 84,
+               borderRadius: '50%',
+               objectFit: 'cover',
+               border: '1px solid #e5e8e1',
+             }}
+           />
+         ) : (
+           <div
+             style={{
+               width: 84,
+               height: 84,
+               borderRadius: '50%',
+               background: '#f3f4ef',
+               border: '1px solid #e5e8e1',
+               display: 'flex',
+               alignItems: 'center',
+               justifyContent: 'center',
+               fontSize: 28,
+             }}
+           >
+             👤
+           </div>
+         )}
+
+        <button
+           type="button"
+           onClick={() => profileImageInputRef.current?.click()}
+           disabled={!connected || profileLoading || profileSaving || profileImageUploading}
+           style={{
+           padding: '12px 16px',
+           border: '1px solid #e5e8e1',
+           borderRadius: 10,
+           background: '#fff',
+           cursor: 'pointer',
+           font: 'inherit',
+          }}
+
+         {profileImageFile ? 'Choose Another Picture' : 'Choose Profile Picture'}
+  </button>
+
+   {profileImageFile && (
+   <span style={{ fontSize: 13, color: '#666' }}>
+   {profileImageFile.name}
+  )}
+
+</div>
+
+ {profileImageUploading && (
+
+  <div className="sub" style={{ marginTop: 8 }}>
+    Uploading profile picture...
+  </div>
+)}
         </div>
 
         {/* FULL NAME */}
