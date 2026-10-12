@@ -10,6 +10,7 @@ import { env } from './config/env.js'
 import { createWalletChallenge } from './walletChallenges.js'
 import productPublishingRouter from './productPublishing.js'
 import sellerProfilesRouter from './sellerProfiles.js'
+import messagesRouter from './messages.js'
 
 const app = express()
 
@@ -38,6 +39,7 @@ app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'))
 // Product publishing endpoint
 app.use('/products', productPublishingRouter)
 app.use('/seller-profiles', sellerProfilesRouter)
+app.use('/messages', messagesRouter)
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {
