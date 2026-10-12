@@ -83,6 +83,15 @@ export default function App() {
   const [profileFullName, setProfileFullName] = useState('')
   const [profileUsername, setProfileUsername] = useState('')
   const [profileImageUrl, setProfileImageUrl] = useState('')
+  const [profileImageFile, setProfileImageFile] =
+  useState<File | null>(null)
+
+  const [profileImagePreview, setProfileImagePreview] =
+  useState('')
+  const [profileImageUploading, setProfileImageUploading] =
+  useState(false)
+
+  const profileImageInputRef = useRef<HTMLInputElement>(null)
   const [profileLocation, setProfileLocation] = useState('')
   const [profileBio, setProfileBio] = useState('')
   const [profileSellerType, setProfileSellerType] =
@@ -161,21 +170,52 @@ useEffect(() => {
 }, [connected, publicKey])
 
 // Save the seller profile after wallet verification.
-async function saveSellerProfile() {
-  if (!connected || !publicKey || !signMessage) {
+  function handleProfileImageChange(
+  event: React.ChangeEvent,
+  ) {
+  const file = event.target.files?.[0]
+
+    if (!file) return
+    
+    if (!file.type.startsWith('image/')) {
+      setProfileError('Please select an image file.')
+      event.target.value = ''
+      return
+    }
+   
+    if (file.size > 5 * 1024 * 1024) {
+      setProfileError('Your profile picture must be 5 MB or smaller.')
+      event.target.value = ''
+      return
+    }
+    setProfileError('')
+    setProfileImageFile(file)
+
+    const previewUrl = URL.createObjectURL(file)
+    setProfileImagePreview((previous) => {
+      if (previous.startsWith('blob:')) {
+        URL.revokeObjectURL(previous)
+      }
+  
+      return previewUrl
+   })
+
+ }
+
+// Save the seller profile after wallet verification.
+    async function saveSellerProfile() {
+    if (!connected || !publicKey || !signMessage) {
     setProfileError(
-      'Connect a wallet that supports message signing before saving your profile.',
-    )
-    return
+    ‘Connect a wallet that supports message signing before saving your profile.’,
+  )
+   return
   }
 
-  setProfileSaving(true)
-  setProfileError('')
-  setProfileMessage('')
-
-  try {
-    const walletAddress = publicKey.toBase58()
-
+     setProfileSaving(true)
+     setProfileError('')
+     setProfileMessage('')
+     try {
+       const walletAddress = publicKey.toBase58()
     // Request a wallet verification challenge.
     const challengeResponse = await fetch(
       `${API_URL}/wallet/challenge`,
