@@ -2287,29 +2287,41 @@ function addToCart(id: string | number) {
            </div>
          )}
 
-        <button
-           type="button"
-           onClick={() => profileImageInputRef.current?.click()}
-           disabled={!connected || profileLoading || profileSaving || profileImageUploading}
-           style={{
-           padding: '12px 16px',
-           border: '1px solid #e5e8e1',
-           borderRadius: 10,
-           background: '#fff',
-           cursor: 'pointer',
-           font: 'inherit',
-          }}
+     <button
+       type="button"
+       onClick={() => profileImageInputRef.current?.click()}
+       disabled={
+         !connected ||
+         profileLoading ||
+         profileSaving ||
+         profileImageUploading
+       }
+       style={{
+         padding: '12px 16px',
+         border: '1px solid #e5e8e1',
+         borderRadius: 10,
+         background: '#fff',
+         cursor: 'pointer',
+         font: 'inherit',
+       }}
+     >
+       {profileImageFile
+         ? 'Choose Another Picture'
+         : 'Choose Profile Picture'}
+     </button>
 
-         {profileImageFile ? 'Choose Another Picture' : 'Choose Profile Picture'}
-  </button>
+     {profileImageFile && (
+       <span style={{ fontSize: 13, color: '#666' }}>
+       {profileImageFile.name}
+       </span>
+     )}
+     </div>
 
-   {profileImageFile && (
-   <span style={{ fontSize: 13, color: '#666' }}>
-   {profileImageFile.name}
-  )}
-
-</div>
-
+     {profileImageUploading && (
+       <div className="sub" style={{ marginTop: 8 }}>
+         Uploading profile picture...
+       </div>
+)}
  {profileImageUploading && (
 
   <div className="sub" style={{ marginTop: 8 }}>
