@@ -184,7 +184,10 @@ async function saveSellerProfile() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ walletAddress }),
+        body: JSON.stringify({
+          walletAddress,
+          purpose: 'seller_profile',
+        }),
       },
     )
 
