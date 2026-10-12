@@ -2242,46 +2242,7 @@ function addToCart(id: string | number) {
              onChange={handleProfileImageChange}
              disabled={!connected || profileLoading || profileSaving || profileImageUploading}
              style={{ display: 'none' }}
-       />
-
-       <div
-         style={{
-           display: 'flex',
-           alignItems: 'center',
-           gap: 14,
-           flexWrap: 'wrap',
-           marginTop: 12,
-         }}
-       >
-         {profileImagePreview || profileImageUrl ? (
-           <img
-             src={profileImagePreview || profileImageUrl}
-             alt="Seller profile preview"
-             style={{
-               width: 84,
-               height: 84,
-               borderRadius: '50%',
-               objectFit: 'cover',
-               border: '1px solid #e5e8e1',
-             }}
            />
-         ) : (
-           <div
-             style={{
-               width: 84,
-               height: 84,
-               borderRadius: '50%',
-               background: '#f3f4ef',
-               border: '1px solid #e5e8e1',
-               display: 'flex',
-               alignItems: 'center',
-               justifyContent: 'center',
-               fontSize: 28,
-             }}
-           >
-             👤
-           </div>
-         )}
 
      <button
        type="button"
@@ -2306,25 +2267,12 @@ function addToCart(id: string | number) {
          : 'Choose Profile Picture'}
      </button>
 
-     {profileImageFile && (
-       <span style={{ fontSize: 13, color: '#666' }}>
-       {profileImageFile.name}
-       </span>
-     )}
-     </div>
-
      {profileImageUploading && (
        <div className="sub" style={{ marginTop: 8 }}>
          Uploading profile picture...
-       </div>
-)}
- {profileImageUploading && (
-
-  <div className="sub" style={{ marginTop: 8 }}>
-    Uploading profile picture...
-  </div>
-)}
-        </div>
+      </div>
+     )}
+   </div>
 
         {/* FULL NAME */}
         <div style={{ marginBottom: 20 }}>
