@@ -2231,11 +2231,7 @@ function addToCart(id: string | number) {
                 <User size={32} color="#8b9684" />
               )}
             </div>
-
-            <div className="sub">
-              Add an image URL beginning with HTTPS to display your profile
-              picture.
-            </div>
+         
           </div>
 
           <input
