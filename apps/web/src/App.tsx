@@ -171,7 +171,7 @@ useEffect(() => {
 
 // Save the seller profile after wallet verification.
   function handleProfileImageChange(
-  event: React.ChangeEvent,
+    event: React.ChangeEvent<HTMLInputElement>,
   ) {
   const file = event.target.files?.[0]
 
@@ -206,7 +206,7 @@ useEffect(() => {
     async function saveSellerProfile() {
     if (!connected || !publicKey || !signMessage) {
     setProfileError(
-    ‘Connect a wallet that supports message signing before saving your profile.’,
+    'Connect a wallet that supports message signing before saving your profile.',
   )
    return
   }
