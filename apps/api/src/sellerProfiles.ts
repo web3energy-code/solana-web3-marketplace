@@ -1,4 +1,6 @@
 import express, { type Request, type Response } from 'express'
+import multer from 'multer'
+import { randomUUID } from 'node:crypto'
 import { PublicKey } from '@solana/web3.js'
 import nacl from 'tweetnacl'
 import { getSupabaseClient } from './services/supabase.js'
@@ -7,6 +9,30 @@ const router = express.Router()
 
 const PROFILES_TABLE = 'solmart_seller_profiles'
 const CHALLENGES_TABLE = 'solmart_wallet_challenges'
+const PROFILE_IMAGES_BUCKET = 'solmart-marketplace-images'
+
+const profileImageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+    files: 1,
+  },
+  fileFilter: (_req, file, callback) => {
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+    ]
+
+    if (!allowedTypes.includes(file.mimetype)) {
+      callback(new Error('Please upload a JPEG, PNG, WebP, or GIF image.'))
+      return
+    }
+
+    callback(null, true)
+  },
+})
 
 function sendError(
   res: Response,
@@ -18,6 +44,231 @@ function sendError(
     error,
   })
 }
+
+// Upload a seller profile picture after verifying wallet ownership.
+router.post(
+  '/image',
+  (req: Request, res: Response, next) => {
+    profileImageUpload.single('image')(req, res, (error) => {
+      if (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Could not process the uploaded image.'
+
+        return sendError(res, 400, message)
+      }
+
+      next()
+    })
+  },
+  async (req: Request, res: Response) => {
+    try {
+      const {
+        walletAddress,
+        challengeMessage: rawChallengeMessage,
+        signature,
+      } = req.body ?? {}
+
+      const file = req.file
+
+      if (
+        typeof walletAddress !== 'string' ||
+        typeof rawChallengeMessage !== 'string' ||
+        typeof signature !== 'string' ||
+        !file
+      ) {
+        return sendError(
+          res,
+          400,
+          'Wallet verification details and an image are required.',
+        )
+      }
+
+      let normalizedWallet: string
+
+      try {
+        normalizedWallet = new PublicKey(walletAddress).toBase58()
+      } catch {
+        return sendError(res, 400, 'Invalid Solana wallet address.')
+      }
+
+      const challengeMessage =
+        rawChallengeMessage.replace(/\r\n/g, '\n')
+
+      if (
+        !challengeMessage.includes(
+          'Purpose: Verify wallet ownership to create or update a seller profile.',
+        )
+      ) {
+        return sendError(
+          res,
+          401,
+          'A seller profile verification challenge is required.',
+        )
+      }
+
+      let signatureBytes: Uint8Array
+
+      try {
+        const decoded = Buffer.from(signature, 'base64')
+
+        if (
+          decoded.length !== 64 ||
+          decoded.toString('base64') !== signature
+        ) {
+          return sendError(res, 400, 'Invalid wallet signature format.')
+        }
+
+        signatureBytes = decoded
+      } catch {
+        return sendError(res, 400, 'Invalid wallet signature.')
+      }
+
+      const supabase = getSupabaseClient()
+
+      // Find the exact challenge issued to this wallet.
+      const { data: challenge, error: challengeError } =
+        await supabase
+          .from(CHALLENGES_TABLE)
+          .select('id, wallet_address, challenge, expires_at, used_at')
+          .eq('wallet_address', normalizedWallet)
+          .eq('challenge', challengeMessage)
+          .maybeSingle()
+
+      if (challengeError) {
+        console.error('Image upload challenge lookup failed:', challengeError)
+
+        return sendError(
+          res,
+          500,
+          'Could not verify wallet authentication.',
+        )
+      }
+
+      if (!challenge) {
+        return sendError(
+          res,
+          401,
+          'Wallet verification challenge not found. Please try again.',
+        )
+      }
+
+      if (challenge.used_at) {
+        return sendError(
+          res,
+          401,
+          'This challenge has already been used. Please try again.',
+        )
+      }
+
+      const now = new Date()
+
+      if (new Date(challenge.expires_at).getTime() <= now.getTime()) {
+        return sendError(
+          res,
+          401,
+          'Wallet challenge expired. Please try again.',
+        )
+      }
+
+      // Verify the signature against the connected wallet.
+      const validSignature = nacl.sign.detached.verify(
+        new Uint8Array(Buffer.from(challengeMessage, 'utf8')),
+        signatureBytes,
+        new PublicKey(normalizedWallet).toBytes(),
+      )
+
+      if (!validSignature) {
+        return sendError(
+          res,
+          401,
+          'Wallet signature verification failed.',
+        )
+      }
+
+      // Consume the challenge once to prevent replay.
+      const { data: consumed, error: consumeError } =
+        await supabase
+          .from(CHALLENGES_TABLE)
+          .update({ used_at: now.toISOString() })
+          .eq('id', challenge.id)
+          .is('used_at', null)
+          .gt('expires_at', now.toISOString())
+          .select('id')
+          .maybeSingle()
+
+      if (consumeError) {
+        console.error('Could not consume image upload challenge:', consumeError)
+
+        return sendError(
+          res,
+          500,
+          'Could not complete wallet authentication.',
+        )
+      }
+
+      if (!consumed) {
+        return sendError(
+          res,
+          401,
+          'Wallet challenge has expired or already been used.',
+        )
+      }
+
+      // Create a unique storage path for this image.
+      const extensions: Record<string, string> = {
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/webp': 'webp',
+        'image/gif': 'gif',
+      }
+
+      const extension = extensions[file.mimetype]
+
+      if (!extension) {
+        return sendError(res, 400, 'Unsupported image format.')
+      }
+
+      const storagePath =
+        `seller-profiles/${normalizedWallet}/${randomUUID()}.${extension}`
+
+      const { error: uploadError } = await supabase.storage
+        .from(PROFILE_IMAGES_BUCKET)
+        .upload(storagePath, file.buffer, {
+          contentType: file.mimetype,
+          upsert: false,
+        })
+
+      if (uploadError) {
+        console.error('Supabase profile image upload failed:', uploadError)
+
+        return sendError(
+          res,
+          500,
+          'Could not upload profile picture. Please try again.',
+        )
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from(PROFILE_IMAGES_BUCKET)
+        .getPublicUrl(storagePath)
+
+      return res.status(200).json({
+        success: true,
+        imageUrl: publicUrlData.publicUrl,
+      })
+    } catch (error) {
+      console.error('Profile image upload failed:', error)
+
+      return sendError(
+        res,
+        500,
+        'An unexpected error occurred while uploading the image.',
+      )
+    }
+  },
+)
 
 // Retrieve a seller's saved profile.
 router.get('/:walletAddress', async (req: Request, res: Response) => {
