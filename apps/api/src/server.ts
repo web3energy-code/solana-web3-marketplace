@@ -9,6 +9,7 @@ import { PublicKey } from '@solana/web3.js'
 import { env } from './config/env.js'
 import { createWalletChallenge } from './walletChallenges.js'
 import productPublishingRouter from './productPublishing.js'
+import sellerProfilesRouter from './sellerProfiles.js'
 
 const app = express()
 
