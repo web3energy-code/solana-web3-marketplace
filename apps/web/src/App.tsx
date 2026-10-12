@@ -29,6 +29,18 @@ type Page =
   | 'wishlist'
   | 'product-details'
 
+type SellerProfile = {
+  seller_wallet: string
+  full_name: string
+  username: string | null
+  profile_image_url: string | null
+  location: string
+  bio: string
+  seller_type: 'individual' | 'business'
+  created_at?: string
+  updated_at?: string
+}
+
 type Product = {
   id: string | number
   name: string
@@ -62,7 +74,26 @@ const money = (amount: number, currency: string) =>
   })} ${currency}`
 
 export default function App() {
-  const { publicKey, connected } = useWallet()
+  const { publicKey, connected, signMessage } = useWallet()
+
+  // Seller profile state
+  const [sellerProfile, setSellerProfile] =
+    useState<SellerProfile | null>(null)
+
+  const [profileFullName, setProfileFullName] = useState('')
+  const [profileUsername, setProfileUsername] = useState('')
+  const [profileImageUrl, setProfileImageUrl] = useState('')
+  const [profileLocation, setProfileLocation] = useState('')
+  const [profileBio, setProfileBio] = useState('')
+  const [profileSellerType, setProfileSellerType] =
+    useState<'individual' | 'business'>('individual')
+
+  const [profileLoading, setProfileLoading] = useState(false)
+  const [profileSaving, setProfileSaving] = useState(false)
+  const [profileMessage, setProfileMessage] = useState('')
+  const [profileError, setProfileError] = useState('')
+
+  // Keep your existing App() code below this point.
 
   const [activePage, setActivePage] = useState<Page>('marketplace')
   const [search, setSearch] = useState('')
