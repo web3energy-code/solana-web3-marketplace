@@ -37,6 +37,7 @@ app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'))
 
 // Product publishing endpoint
 app.use('/products', productPublishingRouter)
+app.use('/seller-profiles', sellerProfilesRouter)
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {
