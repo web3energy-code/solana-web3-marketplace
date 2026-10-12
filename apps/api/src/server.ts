@@ -53,6 +53,7 @@ app.get('/health', (_req: Request, res: Response) => {
 // Create a temporary wallet verification challenge
 app.post('/wallet/challenge', async (req: Request, res: Response) => {
   const walletAddress = req.body?.walletAddress
+  const requestedPurpose = req.body?.purpose
 
   if (
     typeof walletAddress !== 'string' ||
@@ -65,10 +66,24 @@ app.post('/wallet/challenge', async (req: Request, res: Response) => {
     return
   }
 
+  if (
+    requestedPurpose !== undefined &&
+    requestedPurpose !== 'listing' &&
+    requestedPurpose !== 'seller_profile'
+  ) {
+    res.status(400).json({
+      error: 'Invalid wallet challenge purpose.',
+    })
+    return
+  }
+
   try {
     new PublicKey(walletAddress)
 
-    const challenge = await createWalletChallenge(walletAddress)
+    const challenge = await createWalletChallenge(
+      walletAddress,
+      requestedPurpose ?? 'listing',
+    )
 
     res.status(200).json({
       success: true,
