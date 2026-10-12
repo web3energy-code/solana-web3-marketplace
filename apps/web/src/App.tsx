@@ -112,6 +112,24 @@ async function messagingRequest(
 
   return result
 }
+
+type Conversation = {
+  id: string
+  buyer_wallet: string
+  seller_wallet: string
+  product_id: string
+  created_at: string
+  updated_at: string
+}
+
+type ChatMessage = {
+  id: string
+  conversation_id: string
+  sender_wallet: string
+  body: string
+  created_at: string
+}
+
 type Product = {
   id: string | number
   name: string
