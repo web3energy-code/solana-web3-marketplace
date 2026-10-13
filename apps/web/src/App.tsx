@@ -43,7 +43,7 @@ type SellerProfile = {
   updated_at?: string
 }
 
-const MESSAGING_API = 'https://solana-web3-marketplace-3et8w.vercel.app'
+const MESSAGING_API = 'https://solana-web3-marketplace-3et8.vercel.app'
 
 async function createMessagingAuth(
   walletAddress: string,
