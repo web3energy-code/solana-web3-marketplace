@@ -2646,29 +2646,191 @@ function addToCart(id: string | number) {
         {activePage === 'sell' && <SellPage />}
 
         {activePage === 'messages' && (
-          <section className="page-placeholder">
-            <h1>Messages</h1>
+  <section className="page-placeholder">
+    <h1>Messages</h1>
 
-            <p className="sub">
-              Keep your conversations with buyers and sellers in one place.
+    <p className="sub">
+      Keep your conversations with buyers and sellers in one place.
+    </p>
+
+    {!connected || !publicKey ? (
+      <div className="page-placeholder-card">
+        <MessageCircle size={32} />
+        <h3>Connect your wallet</h3>
+        <p>Connect your Solana wallet to access your conversations.</p>
+      </div>
+    ) : (
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr)',
+          gap: 16,
+          textAlign: 'left',
+        }}
+      >
+        <div className="page-placeholder-card">
+          <h3>Your conversations</h3>
+
+          {messagesLoading && conversations.length === 0 ? (
+            <p>Loading conversations...</p>
+          ) : conversations.length === 0 ? (
+            <p>
+              No conversations yet. Open a product and select Message Seller
+              to start a conversation.
             </p>
+          ) : (
+            <div style={{ display: 'grid', gap: 10 }}>
+              {conversations.map((conversation) => {
+                const wallet = publicKey.toBase58()
+                const otherWallet =
+                  conversation.buyer_wallet === wallet
+                    ? conversation.seller_wallet
+                    : conversation.buyer_wallet
 
-            <div className="page-placeholder-card">
-              <MessageCircle size={32} />
-
-              <h3>No conversations yet</h3>
-
-              <p>
-                Your buyer and seller conversations will appear here when the
-                messaging system is connected.
-              </p>
-
-              <p style={{ color: '#78877c', fontSize: 12 }}>
-                Messaging is not connected to a database yet.
-              </p>
+                return (
+                  <button
+                    key={conversation.id}
+                    type="button"
+                    className="addbtn"
+                    onClick={() => void openConversation(conversation)}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: 12,
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    <MessageCircle size={16} />
+                    <span>
+                      {otherWallet.slice(0, 8)}...
+                      {otherWallet.slice(-6)}
+                      <br />
+                      <small>
+                        Product: {conversation.product_id}
+                      </small>
+                    </span>
+                  </button>
+                )
+              })}
             </div>
-          </section>
-        )}
+          )}
+
+          <button
+            type="button"
+            className="addbtn"
+            onClick={() => void loadConversations()}
+            disabled={messagesLoading}
+            style={{ marginTop: 12 }}
+          >
+            Refresh conversations
+          </button>
+        </div>
+
+        <div className="page-placeholder-card">
+          {activeConversation ? (
+            <>
+              <h3>Chat</h3>
+
+              <p className="sub" style={{ overflowWrap: 'anywhere' }}>
+                Conversation about product {activeConversation.product_id}
+              </p>
+
+              <button
+                type="button"
+                className="addbtn"
+                onClick={() => setActiveConversation(null)}
+              >
+                Back to conversations
+              </button>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gap: 10,
+                  marginTop: 16,
+                  marginBottom: 16,
+                }}
+              >
+                {messagesLoading ? (
+                  <p>Loading messages...</p>
+                ) : chatMessages.length === 0 ? (
+                  <p>No messages yet. Send the first message!</p>
+                ) : (
+                  chatMessages.map((message) => {
+                    const isMine =
+                      message.sender_wallet === publicKey.toBase58()
+
+                    return (
+                      <div
+                        key={message.id}
+                        style={{
+                          justifySelf: isMine ? 'end' : 'start',
+                          maxWidth: '90%',
+                          padding: 12,
+                          borderRadius: 12,
+                          background: isMine ? '#e7f8d8' : '#f1f4f0',
+                          color: '#243328',
+                          overflowWrap: 'anywhere',
+                        }}
+                      >
+                        <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                          {message.body}
+                        </p>
+                        <small>
+                          {new Date(message.created_at).toLocaleString()}
+                        </small>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  void sendChatMessage()
+                }}
+                style={{ display: 'grid', gap: 10 }}
+              >
+                <textarea
+                  value={messageDraft}
+                  onChange={(event) => setMessageDraft(event.target.value)}
+                  placeholder="Write a message..."
+                  maxLength={5000}
+                  rows={3}
+                  required
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: 12,
+                    borderRadius: 10,
+                    border: '1px solid #d5ded5',
+                    font: 'inherit',
+                  }}
+                />
+
+                <button
+                  type="submit"
+                  className="addbtn"
+                  disabled={messageSending || !messageDraft.trim()}
+                >
+                  <MessageCircle size={16} />
+                  {messageSending ? 'Sending...' : 'Send message'}
+                </button>
+              </form>
+            </>
+          ) : (
+            <>
+              <MessageCircle size={32} />
+              <h3>Open a conversation</h3>
+              <p>Select a conversation above to view messages and reply.</p>
+            </>
+          )}
+        </div>
+      </div>
+    )}
+  </section>
+)}
 
         {activePage === 'profile' && (
   <section className="section" style={{ paddingBottom: 100 }}>
