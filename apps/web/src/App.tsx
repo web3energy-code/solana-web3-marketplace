@@ -505,6 +505,14 @@ useEffect(() => {
     Record<string, SellerProfile | null>
   >({})
   const [viewedSellerWallet, setViewedSellerWallet] = useState('')
+  
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [activeConversation, setActiveConversation] =
+    useState<Conversation | null>(null)
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [messageDraft, setMessageDraft] = useState('')
+  const [messagesLoading, setMessagesLoading] = useState(false)
+  const [messageSending, setMessageSending] = useState(false)
 
   useEffect(() => {
     const wallet =
