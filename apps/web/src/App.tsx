@@ -546,6 +546,11 @@ useEffect(() => {
       cancelled = true
     }
   }, [activePage, selectedProduct?.seller_wallet, viewedSellerWallet])
+   useEffect(() => {
+  if (activePage !== 'messages') return
+
+  void loadConversations()
+}, [activePage, publicKey, connected])
 
   function openSellerProfile(wallet: string) {
     setViewedSellerWallet(wallet)
