@@ -552,6 +552,33 @@ useEffect(() => {
     navigate('seller-profile')
   }
 
+  async function loadConversations() {
+  if (!connected || !publicKey || !signMessage) {
+    setConversations([])
+    return
+  }
+
+  setMessagesLoading(true)
+
+  try {
+    const result = await messagingRequest(
+      '/conversations/list',
+      publicKey.toBase58(),
+      signMessage,
+    )
+
+    setConversations(result.conversations ?? [])
+  } catch (error) {
+    showNotice(
+      error instanceof Error
+        ? error.message
+        : 'Could not load conversations.',
+    )
+  } finally {
+    setMessagesLoading(false)
+  }
+}
+  
   const [wishlist, setWishlist] = useState<string[]>(() => {
   try {
     const saved = localStorage.getItem('solmart-wishlist')
