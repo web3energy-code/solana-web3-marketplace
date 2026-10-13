@@ -578,6 +578,85 @@ useEffect(() => {
     setMessagesLoading(false)
   }
 }
+
+  async function openConversation(conversation: Conversation) {
+  if (!connected || !publicKey || !signMessage) {
+    showNotice('Connect a wallet that supports message signing.')
+    return
+  }
+
+  setActiveConversation(conversation)
+  setChatMessages([])
+  setMessagesLoading(true)
+
+  try {
+    const result = await messagingRequest(
+      `/conversations/${encodeURIComponent(conversation.id)}/list`,
+      publicKey.toBase58(),
+      signMessage,
+    )
+
+    setChatMessages(result.messages ?? [])
+  } catch (error) {
+    setActiveConversation(null)
+
+    showNotice(
+      error instanceof Error
+        ? error.message
+        : 'Could not load messages.',
+    )
+  } finally {
+    setMessagesLoading(false)
+  }
+}
+
+  async function sendChatMessage() {
+  if (!connected || !publicKey || !signMessage || !activeConversation) {
+    showNotice('Connect your wallet and open a conversation first.')
+    return
+  }
+
+  const body = messageDraft.trim()
+
+  if (!body) {
+    showNotice('Please enter a message.')
+    return
+  }
+
+  if (body.length > 5000) {
+    showNotice('Your message cannot exceed 5000 characters.')
+    return
+  }
+
+  setMessageSending(true)
+
+  try {
+    const result = await messagingRequest(
+      `/conversations/${encodeURIComponent(activeConversation.id)}/send`,
+      publicKey.toBase58(),
+      signMessage,
+      { body },
+    )
+
+    if (result.message) {
+      setChatMessages((previous) => [...previous, result.message])
+      setMessageDraft('')
+      setConversations((previous) =>
+        previous.map((conversation) =>
+          conversation.id === activeConversation.id
+            ? { ...conversation, updated_at: result.message.created_at }
+            : conversation,
+        ),
+      )
+    }
+  } catch (error) {
+    showNotice(
+      error instanceof Error ? error.message : 'Could not send message.',
+    )
+  } finally {
+    setMessageSending(false)
+  }
+}
   
   const [wishlist, setWishlist] = useState<string[]>(() => {
   try {
