@@ -31,6 +31,7 @@ type Page =
   | 'wishlist'
   | 'product-details'
   | 'seller-profile'
+  | 'checkout'
 
 
 type SellerProfile = {
