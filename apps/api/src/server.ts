@@ -12,6 +12,7 @@ import productPublishingRouter from './productPublishing.js'
 import sellerProfilesRouter from './sellerProfiles.js'
 import messagesRouter from './messages.js'
 import checkoutRouter from './checkout.js'
+import ordersRouter from './orders.js'
 
 const app = express()
 
@@ -42,6 +43,7 @@ app.use('/products', productPublishingRouter)
 app.use('/seller-profiles', sellerProfilesRouter)
 app.use('/messages', messagesRouter)
 app.use('/checkout', checkoutRouter)
+app.use('/orders', ordersRouter)
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {
