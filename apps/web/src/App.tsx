@@ -3,6 +3,7 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 import { useWallet } from '@solana/wallet-adapter-react'
 import SellPage from './pages/SellPage'
 import MessagesPage, { useChatUnread } from './pages/MessagesPage'
+import CheckoutPage from './pages/CheckoutPage'
 import {
   Search,
   ShoppingCart,
@@ -2654,6 +2655,8 @@ function addToCart(id: string | number) {
         
         {activePage === 'sell' && <SellPage />}
 
+        {activePage === 'checkout' && <CheckoutPage />}
+
         {activePage === 'messages' && (
           <MessagesPage
             startProductId={chatProductId}
@@ -3411,17 +3414,16 @@ function addToCart(id: string | number) {
                   payment will be made from this cart.
                 </p>
 
-                <button
-                  className="checkout"
-                  onClick={() => {
-                    setShowCart(false)
-                    showNotice(
-                      'Real checkout is not connected yet. No payment has been made.',
-                    )
-                  }}
+                 <button
+                   className="checkout"
+                   onClick={() => {
+                     setShowCart(false)
+                     navigate('checkout')
+                   }}
                 >
-                  Checkout not available yet
+                  Proceed to checkout
                 </button>
+
               </>
             )}
           </aside>
