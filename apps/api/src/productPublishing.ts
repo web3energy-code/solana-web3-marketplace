@@ -142,8 +142,8 @@ async function publishProduct(
       return
     }
 
-    if (!['SOL', 'USDC'].includes(currency)) {
-      sendError(res, 400, 'Currency must be SOL or USDC.')
+    if (currency !== 'USDC') {
+      sendError(res, 400, 'Products must be listed in USDC.')
       return
     }
 
