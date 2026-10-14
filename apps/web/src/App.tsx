@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 import { useWallet } from '@solana/wallet-adapter-react'
 import SellPage from './pages/SellPage'
+import MessagesPage, { useChatUnread } from './pages/MessagesPage'
 import {
   Search,
   ShoppingCart,
@@ -505,6 +506,9 @@ useEffect(() => {
     Record<string, SellerProfile | null>
   >({})
   const [viewedSellerWallet, setViewedSellerWallet] = useState('')
+  const [chatProductId, setChatProductId] = useState<string | null>(null)
+  const unreadMessages = useChatUnread(publicKey ? publicKey.toBase58() : '')
+
   
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeConversation, setActiveConversation] =
@@ -549,7 +553,7 @@ useEffect(() => {
    useEffect(() => {
   if (activePage !== 'messages') return
 
-  void loadConversations()
+  // void loadConversations()
 }, [activePage, publicKey, connected])
 
   function openSellerProfile(wallet: string) {
@@ -2284,6 +2288,10 @@ function addToCart(id: string | number) {
           <button
             className="addbtn"
             onClick={async () => {
+            setChatProductId(String(selectedProduct.id))
+            navigate('messages')
+            return
+
          if (!connected || !publicKey) {
            showNotice('Connect your Solana wallet to message this seller.')
          return
@@ -2646,373 +2654,18 @@ function addToCart(id: string | number) {
         {activePage === 'sell' && <SellPage />}
 
         {activePage === 'messages' && (
-  <section
-    style={{
-      maxWidth: 850,
-      margin: '0 auto',
-      padding: '12px 0',
-      color: '#183b2b',
-    }}
-  >
-    {!connected || !publicKey ? (
-      <div className="page-placeholder-card" style={{ textAlign: 'center', padding: 32 }}>
-        <MessageCircle size={36} />
-        <h2>SolMart Messages</h2>
-        <p>Connect your Solana wallet to chat with buyers and sellers.</p>
-      </div>
-    ) : (
-      <div
-        style={{
-          background: '#fff',
-          border: '1px solid #e3ece5',
-          borderRadius: 18,
-          overflow: 'hidden',
-          boxShadow: '0 4px 20px rgba(24,59,43,0.06)',
-        }}
-      >
-        {!activeConversation ? (
-          <>
-            <div
-              style={{
-                padding: '20px 16px',
-                background: '#075e43',
-                color: '#fff',
-              }}
-            >
-              <h2 style={{ margin: 0, fontSize: 23 }}>Messages</h2>
-              <p style={{ margin: '6px 0 0', fontSize: 13, opacity: 0.85 }}>
-                Your SolMart conversations
-              </p>
-            </div>
-
-            <div style={{ padding: 14 }}>
-              <input
-                type="search"
-                placeholder="Your conversations"
-                readOnly
-                aria-label="Your conversations"
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  padding: '12px 14px',
-                  borderRadius: 24,
-                  border: '1px solid #e0e9e2',
-                  background: '#f5f8f5',
-                  fontSize: 14,
-                  marginBottom: 12,
-                }}
-              />
-
-              {messagesLoading && conversations.length === 0 ? (
-                <p style={{ padding: 20, textAlign: 'center' }}>
-                  Loading conversations...
-                </p>
-              ) : conversations.length === 0 ? (
-                <div style={{ padding: '35px 16px', textAlign: 'center' }}>
-                  <MessageCircle size={42} color="#8ca899" />
-                  <h3>No conversations yet</h3>
-                  <p style={{ color: '#718078', fontSize: 14 }}>
-                    Open a product and tap Message Seller to start chatting.
-                  </p>
-                </div>
-              ) : (
-                conversations.map((conversation) => {
-                  const wallet = publicKey.toBase58()
-                  const otherWallet =
-                    conversation.buyer_wallet === wallet
-                      ? conversation.seller_wallet
-                      : conversation.buyer_wallet
-
-                  return (
-                    <button
-                      key={conversation.id}
-                      type="button"
-                      onClick={() => void openConversation(conversation)}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                        padding: '15px 8px',
-                        border: 'none',
-                        borderBottom: '1px solid #edf1ed',
-                        background: '#fff',
-                        textAlign: 'left',
-                        cursor: 'pointer',
-                        color: '#183b2b',
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 48,
-                          height: 48,
-                          flexShrink: 0,
-                          borderRadius: '50%',
-                          background: '#dff3e5',
-                          display: 'grid',
-                          placeItems: 'center',
-                          color: '#087443',
-                        }}
-                      >
-                        <MessageCircle size={22} />
-                      </div>
-
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <strong style={{ display: 'block', fontSize: 14 }}>
-                          {otherWallet.slice(0, 8)}...{otherWallet.slice(-6)}
-                        </strong>
-                        <span style={{ display: 'block', marginTop: 5, fontSize: 12, color: '#718078' }}>
-                          Product: {conversation.product_id}
-                        </span>
-                      </div>
-
-                      <span style={{ color: '#168451', fontSize: 12 }}>
-                        Chat →
-                      </span>
-                    </button>
-                  )
-                })
-              )}
-
-              <button
-                type="button"
-                className="addbtn"
-                onClick={() => void loadConversations()}
-                disabled={messagesLoading}
-                style={{ width: '100%', marginTop: 14, justifyContent: 'center' }}
-              >
-                {messagesLoading ? 'Refreshing...' : 'Refresh conversations'}
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '14px 12px',
-                background: '#075e43',
-                color: '#fff',
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setActiveConversation(null)}
-                aria-label="Back to conversations"
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  color: '#fff',
-                  fontSize: 25,
-                  padding: '0 5px',
-                  cursor: 'pointer',
-                }}
-              >
-                ‹
-              </button>
-
-              <div
-                style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: '50%',
-                  background: '#dff3e5',
-                  color: '#075e43',
-                  display: 'grid',
-                  placeItems: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <MessageCircle size={21} />
-              </div>
-
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <strong style={{ display: 'block', fontSize: 14 }}>
-                  {(() => {
-                    const wallet = publicKey.toBase58()
-                    const otherWallet =
-                      activeConversation.buyer_wallet === wallet
-                        ? activeConversation.seller_wallet
-                        : activeConversation.buyer_wallet
-
-                    return `${otherWallet.slice(0, 8)}...${otherWallet.slice(-6)}`
-                  })()}
-                </strong>
-                <span style={{ fontSize: 12, opacity: 0.8 }}>
-                  Product: {activeConversation.product_id}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => void openConversation(activeConversation)}
-                disabled={messagesLoading}
-                aria-label="Refresh messages"
-                style={{
-                  background: 'transparent',
-                  color: '#fff',
-                  border: '1px solid rgba(255,255,255,0.35)',
-                  borderRadius: 20,
-                  padding: '7px 10px',
-                  fontSize: 12,
-                }}
-              >
-                ↻
-              </button>
-            </div>
-
-            <div
-              style={{
-                minHeight: 320,
-                maxHeight: '55vh',
-                overflowY: 'auto',
-                padding: '18px 12px',
-                background: '#f0f5ef',
-                backgroundImage: 'radial-gradient(#dce8dc 0.7px, transparent 0.7px)',
-                backgroundSize: '14px 14px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 12,
-              }}
-            >
-              {messagesLoading && chatMessages.length === 0 ? (
-                <p style={{ textAlign: 'center', color: '#718078' }}>
-                  Loading messages...
-                </p>
-              ) : chatMessages.length === 0 ? (
-                <div
-                  style={{
-                    alignSelf: 'center',
-                    background: '#fff8d9',
-                    color: '#6e6540',
-                    padding: '10px 14px',
-                    borderRadius: 12,
-                    fontSize: 12,
-                    textAlign: 'center',
-                  }}
-                >
-                  Start the conversation. Say hello!
-                </div>
-              ) : (
-                chatMessages.map((message) => {
-                  const isMine =
-                    message.sender_wallet === publicKey.toBase58()
-
-                  return (
-                    <div
-                      key={message.id}
-                      style={{
-                        alignSelf: isMine ? 'flex-end' : 'flex-start',
-                        maxWidth: '85%',
-                        minWidth: 65,
-                        padding: '10px 12px 7px',
-                        borderRadius: isMine
-                          ? '14px 14px 3px 14px'
-                          : '14px 14px 14px 3px',
-                        background: isMine ? '#d9fdd3' : '#fff',
-                        color: '#263b2e',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
-                        overflowWrap: 'anywhere',
-                      }}
-                    >
-                      <p
-                        style={{
-                          margin: 0,
-                          whiteSpace: 'pre-wrap',
-                          fontSize: 14,
-                          lineHeight: 1.5,
-                        }}
-                      >
-                        {message.body}
-                      </p>
-                      <div
-                        style={{
-                          marginTop: 5,
-                          textAlign: 'right',
-                          fontSize: 10,
-                          color: '#75847a',
-                        }}
-                      >
-                        {new Date(message.created_at).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-
-            <form
-              onSubmit={(event) => {
-                event.preventDefault()
-                void sendChatMessage()
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'flex-end',
-                gap: 9,
-                padding: '12px 10px',
-                background: '#f7faf7',
-                borderTop: '1px solid #e3ece5',
-              }}
-            >
-              <textarea
-                value={messageDraft}
-                onChange={(event) => setMessageDraft(event.target.value)}
-                placeholder="Type a message..."
-                maxLength={5000}
-                rows={1}
-                required
-                aria-label="Type a message"
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  boxSizing: 'border-box',
-                  resize: 'vertical',
-                  minHeight: 44,
-                  maxHeight: 110,
-                  padding: '12px 15px',
-                  border: '1px solid #dce7dd',
-                  borderRadius: 23,
-                  background: '#fff',
-                  font: 'inherit',
-                  fontSize: 14,
-                  outlineColor: '#168451',
-                }}
-              />
-
-              <button
-                type="submit"
-                disabled={messageSending || !messageDraft.trim()}
-                aria-label="Send message"
-                style={{
-                  width: 44,
-                  height: 44,
-                  flexShrink: 0,
-                  display: 'grid',
-                  placeItems: 'center',
-                  border: 'none',
-                  borderRadius: '50%',
-                  background: messageSending || !messageDraft.trim()
-                    ? '#9bb6a4'
-                    : '#087443',
-                  color: '#fff',
-                  cursor: 'pointer',
-                }}
-              >
-                <MessageCircle size={20} />
-              </button>
-            </form>
-          </>
+          <MessagesPage
+            startProductId={chatProductId}
+            onStartHandled={() => setChatProductId(null)}
+            onOpenProduct={(productId) => {
+              const product = products.find((item) => String(item.id) === productId)
+              if (product) {
+                setSelectedProduct(product)
+                navigate('product-details')
+              }
+            }}
+          />
         )}
-      </div>
-    )}
-  </section>
-)}
 
         {activePage === 'profile' && (
   <section className="section" style={{ paddingBottom: 100 }}>
@@ -3802,7 +3455,15 @@ function addToCart(id: string | number) {
           onClick={() => navigate('messages')}
         >
           <MessageCircle size={21} />
-          <span>Messages</span>
+          <span>
+            Messages
+            {unreadMessages > 0 && (
+              <b style={{ marginLeft: 5, background: '#e53935', color: '#fff', borderRadius: 999, fontSize: 10, padding: '1px 6px' }}>
+                {unreadMessages}
+              </b>
+            )}
+          </span>
+
         </button>
 
         <button
