@@ -12,7 +12,7 @@ export interface WalletChallenge {
 
 export async function createWalletChallenge(
   walletAddress: string,
-  purpose: 'listing' | 'seller_profile' | 'messaging' = 'listing',
+  purpose: 'listing' | 'seller_profile' | 'messaging' | 'checkout' = 'listing',
 ): Promise<WalletChallenge> {
   let publicKey: PublicKey
 
@@ -23,11 +23,13 @@ export async function createWalletChallenge(
   }
 
   const normalizedWallet = publicKey.toBase58()
-    const purposeText =
-    purpose === 'seller_profile'
-      ? 'Verify wallet ownership to create or update a seller profile.'
-      : purpose === 'messaging'
-        ? 'Verify wallet ownership to access SolMart messaging.'
+  const purposeText =
+  purpose === 'seller_profile'
+    ? 'Verify wallet ownership to create or update a seller profile.'
+    : purpose === 'messaging'
+      ? 'Verify wallet ownership to access SolMart messaging.'
+      : purpose === 'checkout'
+        ? 'Verify wallet ownership to create a SolMart checkout order.'
         : 'Verify wallet ownership to publish a marketplace listing.'
   const nonce = randomBytes(32).toString('hex')
   const createdAt = new Date()
