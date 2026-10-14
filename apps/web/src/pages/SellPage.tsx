@@ -37,7 +37,7 @@ export default function SellPage() {
   const [description, setDescription] = useState('')
   const [condition, setCondition] = useState('New')
   const [price, setPrice] = useState('')
-  const [currency, setCurrency] = useState('SOL')
+  const [currency, setCurrency] = useState('USDC')
   const [quantity, setQuantity] = useState('1')
   const [location, setLocation] = useState('')
   const [notice, setNotice] = useState('')
@@ -787,8 +787,7 @@ export default function SellPage() {
                     value={currency}
                     onChange={(e) => setCurrency(e.target.value)}
                   >
-                    <option value="SOL">SOL</option>
-                    <option value="USDC">USDC</option>
+                  <option value="USDC">USDC</option>
                   </select>
                 </div>
               </div>
