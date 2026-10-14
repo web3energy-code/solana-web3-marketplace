@@ -11,6 +11,7 @@ import { createWalletChallenge } from './walletChallenges.js'
 import productPublishingRouter from './productPublishing.js'
 import sellerProfilesRouter from './sellerProfiles.js'
 import messagesRouter from './messages.js'
+import checkoutRouter from './checkout.js'
 
 const app = express()
 
@@ -40,6 +41,7 @@ app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'))
 app.use('/products', productPublishingRouter)
 app.use('/seller-profiles', sellerProfilesRouter)
 app.use('/messages', messagesRouter)
+app.use('/checkout', checkoutRouter)
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {
