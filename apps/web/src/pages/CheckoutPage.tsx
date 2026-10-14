@@ -1,19 +1,5 @@
 import { useMemo, useState } from 'react'
-import {
-  ArrowLeft,
-  ShieldCheck,
-  LockKeyhole,
-  Wallet,
-  Minus,
-  Plus,
-  Trash2,
-  ShoppingBag,
-  BadgeCheck,
-  Clock3,
-  Coins,
-  ArrowRight,
-  Info,
-} from 'lucide-react'
+import { useWallet } from '@solana/wallet-adapter-react'
 
 type Product = {
   id: string | number
@@ -36,11 +22,14 @@ type Props = {
 export default function CheckoutPage({
   products,
   cart,
-  changeQuantity,
   onBack,
 }: Props) {
+  const { publicKey, wallet } = useWallet()
+
   const [currency, setCurrency] = useState<'USDC' | 'SOL'>('USDC')
+  const [address, setAddress] = useState('')
   const [notice, setNotice] = useState('')
+  const [addressError, setAddressError] = useState(false)
 
   const items = useMemo(
     () =>
@@ -58,434 +47,650 @@ export default function CheckoutPage({
     0,
   )
 
-  const itemCount = items.reduce(
-    (sum, item) => sum + item.cartQuantity,
-    0,
-  )
-
   const mixedCurrencies =
     new Set(items.map((item) => item.currency)).size > 1
 
-  function formatMoney(amount: number, unit: string) {
-    return `${unit === 'USDC' ? '$' : ''}${amount.toLocaleString(
-      'en-US',
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 4,
-      },
-    )}${unit === 'SOL' ? ' SOL' : ''}`
+  const walletAddress = publicKey?.toBase58() || ''
+  const walletName = wallet?.adapter.name || 'No wallet connected'
+
+  const shortAddress = walletAddress
+    ? `${walletAddress.slice(0, 4)}…${walletAddress.slice(-4)}`
+    : 'Connect wallet first'
+
+  const totalCurrency = items[0]?.currency || 'USDC'
+
+  function money(amount: number) {
+    return `$${amount.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`
   }
 
-  function getImage(item: Product) {
+  function productImage(item: Product) {
     return item.image_urls?.[0] || item.image_url || ''
   }
 
-  function handlePayment() {
-    setNotice(
-      'Payment processing is not connected yet. No funds have been sent.',
+  function showNotice(message: string) {
+    setNotice(message)
+    window.setTimeout(() => setNotice(''), 3000)
+  }
+
+  function handlePay() {
+    if (address.trim().length < 8) {
+      setAddressError(true)
+      showNotice('Enter your delivery address first.')
+      return
+    }
+
+    setAddressError(false)
+
+    if (!publicKey) {
+      showNotice('Connect your Solana wallet before checkout.')
+      return
+    }
+
+    showNotice(
+      'Payments are not connected yet. No funds have been sent.',
     )
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f8f4] px-4 py-6 text-[#17251d] sm:px-6 lg:px-10">
-      <div className="mx-auto max-w-6xl">
-        <button
-          type="button"
-          onClick={onBack}
-          className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#e3e8df] bg-white px-4 py-2.5 text-sm font-semibold transition hover:bg-[#f0f5ec]"
-        >
-          <ArrowLeft size={17} />
-          Back to marketplace
-        </button>
+    <div className="sm-checkout">
+      <style>{`
+        .sm-checkout {
+          --head: #0B3D2B;
+          --bg: #F2F7F3;
+          --card: #FFFFFF;
+          --line: #D9E6DD;
+          --line2: #C5D8CB;
+          --ink: #0C1F16;
+          --mute: #52665A;
+          --acc: #0F7A3D;
+          --tint: #E4F3E9;
+          --tint-line: #B7DEC4;
+          min-height: 100%;
+          background: var(--bg);
+          color: var(--ink);
+          font-family: Manrope, system-ui, -apple-system,
+            BlinkMacSystemFont, "Segoe UI", sans-serif;
+          font-size: 15px;
+          line-height: 1.45;
+          padding-top: env(safe-area-inset-top, 0px);
+          padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
 
-        <div className="mb-8">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#e8f6d8] px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-[#426d21]">
-            <LockKeyhole size={14} />
-            Secure checkout
-          </div>
+        .sm-checkout * { box-sizing: border-box; }
+        .sm-checkout button,
+        .sm-checkout input,
+        .sm-checkout textarea { font: inherit; }
+        .sm-checkout button { cursor: pointer; }
+        .sm-checkout button:focus-visible,
+        .sm-checkout textarea:focus-visible {
+          outline: 2px solid var(--acc);
+          outline-offset: 3px;
+        }
 
-          <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
-            Almost yours.
-          </h1>
+        .sm-app {
+          max-width: 480px;
+          min-height: 100vh;
+          margin: 0 auto;
+          display: flex;
+          flex-direction: column;
+        }
 
-          <p className="mt-2 max-w-xl text-sm leading-6 text-gray-600 sm:text-base">
-            Review your items, choose your payment currency, and get ready
-            to complete your order.
-          </p>
-        </div>
+        .sm-header {
+          background: var(--head);
+          color: white;
+          padding: 14px 16px 14px 8px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
 
-        {items.length === 0 ? (
-          <section className="rounded-3xl border border-[#e5e9e1] bg-white px-6 py-14 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#eff7e8] text-[#537f2c]">
-              <ShoppingBag size={30} />
-            </div>
+        .sm-back {
+          width: 44px;
+          height: 44px;
+          display: grid;
+          place-items: center;
+          color: white;
+          border-radius: 10px;
+          flex: 0 0 auto;
+        }
 
-            <h2 className="text-xl font-extrabold">
-              Your cart is empty
-            </h2>
+        .sm-back:hover { background: #14573D; }
 
-            <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-gray-500">
-              Find something you love in the marketplace and it will show
-              up here.
-            </p>
+        .sm-header h1 {
+          font-size: 19px;
+          font-weight: 800;
+          letter-spacing: -.02em;
+          flex: 1;
+          margin: 0;
+        }
 
-            <button
-              type="button"
-              onClick={onBack}
-              className="mt-6 rounded-xl bg-[#c6f36b] px-6 py-3 font-bold transition hover:bg-[#b8e85b]"
-            >
-              Explore marketplace
-            </button>
-          </section>
-        ) : (
-          <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-            <section className="space-y-5">
-              <div className="rounded-3xl border border-[#e5e9e1] bg-white p-5 shadow-sm sm:p-6">
-                <div className="mb-5 flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-extrabold">
-                      Your items
-                    </h2>
-                    <p className="mt-1 text-sm text-gray-500">
-                      {itemCount} {itemCount === 1 ? 'item' : 'items'} in
-                      your cart
-                    </p>
+        .sm-net {
+          font-size: 12px;
+          font-weight: 700;
+          padding: 5px 10px;
+          border-radius: 999px;
+          background: #14573D;
+          color: #BFF0D4;
+          white-space: nowrap;
+        }
+
+        .sm-main {
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          flex: 1;
+        }
+
+        .sm-card {
+          background: var(--card);
+          border: 1px solid var(--line);
+          border-radius: 16px;
+          padding: 14px;
+        }
+
+        .sm-item {
+          display: flex;
+          gap: 12px;
+          align-items: center;
+          padding: 12px;
+        }
+
+        .sm-thumb {
+          width: 72px;
+          height: 72px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, #0F7A3D, #6FD39A);
+          display: grid;
+          place-items: center;
+          color: white;
+          flex: 0 0 auto;
+          overflow: hidden;
+        }
+
+        .sm-thumb img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .sm-info { flex: 1; min-width: 0; }
+
+        .sm-info b {
+          display: block;
+          font-size: 14px;
+          overflow-wrap: anywhere;
+        }
+
+        .sm-info span {
+          display: block;
+          font-size: 12px;
+          color: var(--mute);
+          overflow-wrap: anywhere;
+        }
+
+        .sm-price {
+          font-weight: 800;
+          font-size: 14px;
+          color: var(--acc);
+          white-space: nowrap;
+        }
+
+        .sm-checkout .sm-card h2,
+        .sm-checkout .sm-card label {
+          display: block;
+          font-size: 14px;
+          font-weight: 700;
+          margin: 0 0 10px;
+        }
+
+        .sm-address {
+          width: 100%;
+          height: 68px;
+          border: 1px solid var(--line2);
+          border-radius: 10px;
+          padding: 10px 12px;
+          font-size: 13px;
+          resize: vertical;
+          background: transparent;
+          color: var(--ink);
+        }
+
+        .sm-address::placeholder { color: var(--mute); }
+
+        .sm-err {
+          color: #C0392B;
+          font-size: 12px;
+          margin-top: 8px;
+        }
+
+        .sm-tokens { display: flex; gap: 10px; }
+
+        .sm-token {
+          flex: 1;
+          min-width: 0;
+          min-height: 56px;
+          border-radius: 12px;
+          border: 1px solid var(--line2);
+          background: var(--card);
+          color: var(--ink);
+          font-weight: 800;
+          font-size: 15px;
+          padding: 7px;
+          text-align: center;
+        }
+
+        .sm-token small {
+          display: block;
+          font-weight: 600;
+          font-size: 11px;
+          color: var(--mute);
+          overflow-wrap: anywhere;
+        }
+
+        .sm-token[aria-pressed="true"] {
+          border: 2px solid var(--acc);
+          background: var(--tint);
+        }
+
+        .sm-wallet {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          margin-top: 12px;
+          padding-top: 12px;
+          border-top: 1px solid var(--line);
+          min-width: 0;
+        }
+
+        .sm-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: ${walletAddress ? '#16A34A' : '#9CA3AF'};
+          flex: 0 0 auto;
+        }
+
+        .sm-who {
+          flex: 1;
+          min-width: 0;
+          font-size: 12px;
+          overflow-wrap: anywhere;
+        }
+
+        .sm-mono {
+          font-family: ui-monospace, Menlo, Consolas, monospace;
+          color: var(--mute);
+          font-size: 11px;
+        }
+
+        .sm-link {
+          color: var(--acc);
+          font-weight: 700;
+          font-size: 12px;
+          min-height: 40px;
+          padding: 0 4px;
+          flex: 0 0 auto;
+        }
+
+        .sm-row {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 4px 0;
+          font-size: 13px;
+        }
+
+        .sm-row span:first-child { color: var(--mute); }
+        .sm-row span:last-child { text-align: right; }
+
+        .sm-total {
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+          gap: 12px;
+          margin-top: 6px;
+          padding-top: 10px;
+          border-top: 1px solid var(--line);
+        }
+
+        .sm-total b { font-size: 14px; }
+        .sm-total .sm-amount {
+          font-size: 19px;
+          color: var(--acc);
+          overflow-wrap: anywhere;
+        }
+
+        .sm-total small {
+          display: block;
+          text-align: right;
+          font-size: 11px;
+          color: var(--mute);
+        }
+
+        .sm-escrow {
+          background: var(--tint);
+          border: 1px solid var(--tint-line);
+          border-radius: 14px;
+          padding: 12px 14px;
+          display: flex;
+          gap: 12px;
+          font-size: 12px;
+          line-height: 1.5;
+        }
+
+        .sm-escrow svg {
+          flex: 0 0 auto;
+          margin-top: 1px;
+          color: var(--acc);
+        }
+
+        .sm-rate {
+          color: var(--mute);
+          font-size: 11px;
+          margin-top: 10px;
+          line-height: 1.5;
+        }
+
+        .sm-footer {
+          position: sticky;
+          bottom: 0;
+          background: var(--card);
+          border-top: 1px solid var(--line);
+          padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+        }
+
+        .sm-pay {
+          width: 100%;
+          min-height: 54px;
+          border-radius: 14px;
+          background: var(--acc);
+          color: white;
+          font-weight: 800;
+          font-size: 15px;
+          padding: 10px;
+        }
+
+        .sm-pay:disabled {
+          opacity: .55;
+          cursor: not-allowed;
+        }
+
+        .sm-footer p {
+          text-align: center;
+          font-size: 11px;
+          color: var(--mute);
+          margin: 8px 0 0;
+        }
+
+        .sm-toast {
+          position: fixed;
+          z-index: 999;
+          left: 50%;
+          bottom: 110px;
+          transform: translateX(-50%);
+          background: var(--head);
+          color: white;
+          padding: 10px 16px;
+          border-radius: 10px;
+          font-size: 12px;
+          font-weight: 600;
+          max-width: 88%;
+          width: max-content;
+          text-align: center;
+          box-shadow: 0 6px 24px #0002;
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .sm-checkout {
+            --bg: #07140E;
+            --card: #0E2218;
+            --line: #1C3A2B;
+            --line2: #2A4D3A;
+            --ink: #EAF6EE;
+            --mute: #9DB8A8;
+            --acc: #2FBF71;
+            --tint: #12362A;
+            --tint-line: #1F5A41;
+          }
+          .sm-pay { color: #04140C; }
+        }
+      `}</style>
+
+      <div className="sm-app">
+        <header className="sm-header">
+          <button
+            type="button"
+            className="sm-back"
+            aria-label="Back to marketplace"
+            onClick={onBack}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 5l-7 7 7 7" />
+            </svg>
+          </button>
+
+          <h1>Checkout</h1>
+          <span className="sm-net">Devnet</span>
+        </header>
+
+        <main className="sm-main">
+          {items.length === 0 ? (
+            <section className="sm-card" style={{ textAlign: 'center', padding: 28 }}>
+              <h2>Your cart is empty</h2>
+              <p style={{ color: 'var(--mute)', fontSize: 13 }}>
+                Add a product to your cart before checking out.
+              </p>
+              <button type="button" className="sm-link" onClick={onBack}>
+                Back to marketplace
+              </button>
+            </section>
+          ) : (
+            <>
+              {items.map((item) => {
+                const image = productImage(item)
+
+                return (
+                  <section
+                    className="sm-card sm-item"
+                    aria-label="Order item"
+                    key={String(item.id)}
+                  >
+                    <div className="sm-thumb">
+                      {image ? (
+                        <img src={image} alt={item.name} />
+                      ) : (
+                        <svg width="30" height="30" viewBox="0 0 24 24"
+                          fill="none" stroke="currentColor"
+                          strokeWidth="1.7" strokeLinecap="round"
+                          strokeLinejoin="round" aria-hidden="true">
+                          <path d="M5 8h14l-1 12H6z" />
+                          <path d="M9 8V6a3 3 0 0 1 6 0v2" />
+                        </svg>
+                      )}
+                    </div>
+
+                    <div className="sm-info">
+                      <b>{item.name}</b>
+                      <span>Quantity: {item.cartQuantity}</span>
+                      <span>
+                        {item.seller_wallet
+                          ? `Seller: ${item.seller_wallet.slice(0, 4)}…${item.seller_wallet.slice(-4)}`
+                          : 'SolMart marketplace'}
+                      </span>
+                    </div>
+
+                    <div className="sm-price">
+                      {money(Number(item.price) * item.cartQuantity)}
+                    </div>
+                  </section>
+                )
+              })}
+
+              <section className="sm-card">
+                <label htmlFor="sm-delivery">Delivery address</label>
+                <textarea
+                  id="sm-delivery"
+                  className="sm-address"
+                  value={address}
+                  onChange={(event) => {
+                    setAddress(event.target.value)
+                    if (event.target.value.trim().length >= 8) {
+                      setAddressError(false)
+                    }
+                  }}
+                  placeholder="Street, city and a phone number for the courier"
+                  aria-invalid={addressError}
+                />
+
+                {addressError && (
+                  <div className="sm-err" role="alert">
+                    Enter your delivery address so the seller can ship.
                   </div>
+                )}
+              </section>
 
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eff7e8] text-[#537f2c]">
-                    <ShoppingBag size={21} />
-                  </div>
-                </div>
+              <section className="sm-card">
+                <h2>Pay with</h2>
 
-                <div className="divide-y divide-gray-100">
-                  {items.map((item) => {
-                    const image = getImage(item)
-
-                    return (
-                      <article
-                        key={String(item.id)}
-                        className="flex gap-4 py-5 first:pt-0 last:pb-0"
-                      >
-                        <div className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-[#f1f3ee] sm:h-28 sm:w-28">
-                          {image ? (
-                            <img
-                              src={image}
-                              alt={item.name}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-[#8a9985]">
-                              <ShoppingBag size={28} />
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex min-w-0 flex-1 flex-col justify-between gap-3">
-                          <div>
-                            <h3 className="line-clamp-2 font-bold">
-                              {item.name}
-                            </h3>
-
-                            <p className="mt-1 text-sm text-gray-500">
-                              Listed price:{' '}
-                              {formatMoney(
-                                Number(item.price),
-                                item.currency,
-                              )}
-                            </p>
-                          </div>
-
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div className="inline-flex items-center rounded-xl border border-gray-200">
-                              <button
-                                type="button"
-                                aria-label={`Decrease quantity of ${item.name}`}
-                                onClick={() =>
-                                  changeQuantity(item.id, -1)
-                                }
-                                className="p-2.5 text-gray-600 transition hover:bg-gray-50"
-                              >
-                                <Minus size={15} />
-                              </button>
-
-                              <span className="min-w-8 text-center text-sm font-bold">
-                                {item.cartQuantity}
-                              </span>
-
-                              <button
-                                type="button"
-                                aria-label={`Increase quantity of ${item.name}`}
-                                onClick={() => {
-                                  if (
-                                    item.cartQuantity >= item.quantity
-                                  ) {
-                                    setNotice(
-                                      'You have reached the available quantity.',
-                                    )
-                                    return
-                                  }
-
-                                  changeQuantity(item.id, 1)
-                                }}
-                                className="p-2.5 text-gray-600 transition hover:bg-gray-50"
-                              >
-                                <Plus size={15} />
-                              </button>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                changeQuantity(
-                                  item.id,
-                                  -item.cartQuantity,
-                                )
-                              }
-                              aria-label={`Remove ${item.name} from cart`}
-                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-500 transition hover:text-red-700"
-                            >
-                              <Trash2 size={14} />
-                              Remove
-                            </button>
-                          </div>
-                        </div>
-                      </article>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-[#e5e9e1] bg-white p-5 shadow-sm sm:p-6">
-                <div className="mb-5">
-                  <h2 className="text-lg font-extrabold">
-                    How would you like to pay?
-                  </h2>
-
-                  <p className="mt-1 text-sm leading-6 text-gray-500">
-                    Choose the cryptocurrency you want to use at checkout.
-                  </p>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="sm-tokens" role="group" aria-label="Payment token">
                   <button
                     type="button"
-                    onClick={() => setCurrency('USDC')}
+                    className="sm-token"
                     aria-pressed={currency === 'USDC'}
-                    className={`rounded-2xl border-2 p-4 text-left transition ${
-                      currency === 'USDC'
-                        ? 'border-[#7baa42] bg-[#f4faed]'
-                        : 'border-gray-100 bg-white hover:border-gray-200'
-                    }`}
+                    onClick={() => setCurrency('USDC')}
                   >
-                    <div className="mb-4 flex items-center justify-between">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#e6f2ff] text-lg font-black text-[#2775ca]">
-                        $
-                      </div>
-
-                      <span
-                        className={`flex h-5 w-5 items-center justify-center rounded-full border ${
-                          currency === 'USDC'
-                            ? 'border-[#5f8e31] bg-[#5f8e31] text-white'
-                            : 'border-gray-300'
-                        }`}
-                      >
-                        {currency === 'USDC' && (
-                          <span className="text-xs">✓</span>
-                        )}
-                      </span>
-                    </div>
-
-                    <p className="font-extrabold">USDC</p>
-                    <p className="mt-1 text-xs leading-5 text-gray-500">
-                      Dollar-pegged stablecoin
-                    </p>
+                    USDC
+                    <small>Dollar stablecoin</small>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setCurrency('SOL')}
+                    className="sm-token"
                     aria-pressed={currency === 'SOL'}
-                    className={`rounded-2xl border-2 p-4 text-left transition ${
-                      currency === 'SOL'
-                        ? 'border-[#7baa42] bg-[#f4faed]'
-                        : 'border-gray-100 bg-white hover:border-gray-200'
-                    }`}
+                    onClick={() => setCurrency('SOL')}
                   >
-                    <div className="mb-4 flex items-center justify-between">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#eee8ff] text-lg font-black text-[#7951d9]">
-                        ◎
-                      </div>
-
-                      <span
-                        className={`flex h-5 w-5 items-center justify-center rounded-full border ${
-                          currency === 'SOL'
-                            ? 'border-[#5f8e31] bg-[#5f8e31] text-white'
-                            : 'border-gray-300'
-                        }`}
-                      >
-                        {currency === 'SOL' && (
-                          <span className="text-xs">✓</span>
-                        )}
-                      </span>
-                    </div>
-
-                    <p className="font-extrabold">Solana (SOL)</p>
-                    <p className="mt-1 text-xs leading-5 text-gray-500">
-                      Pay with SOL from your wallet
-                    </p>
+                    ◎ SOL
+                    <small>Solana</small>
                   </button>
+                </div>
+
+                <div className="sm-wallet">
+                  <span className="sm-dot" />
+
+                  <div className="sm-who">
+                    <b>{walletName}</b>{' '}
+                    <span className="sm-mono">{shortAddress}</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="sm-link"
+                    onClick={() =>
+                      showNotice(
+                        'Connect or switch your wallet using the marketplace wallet button.',
+                      )
+                    }
+                  >
+                    Change
+                  </button>
+                </div>
+
+                <div className="sm-rate">
+                  {currency === 'SOL'
+                    ? 'Live SOL/USD rate and locked quote are not connected yet.'
+                    : 'USDC is intended to be priced against the US dollar.'}
+                </div>
+              </section>
+
+              <section className="sm-card" aria-label="Order summary">
+                <div className="sm-row">
+                  <span>Item price</span>
+                  <span>{money(total)}</span>
+                </div>
+
+                <div className="sm-row">
+                  <span>Delivery</span>
+                  <span>Calculated at checkout</span>
+                </div>
+
+                <div className="sm-row">
+                  <span>Network fee</span>
+                  <span>Shown by wallet</span>
+                </div>
+
+                <div className="sm-total">
+                  <span><b>Total</b></span>
+
+                  <span>
+                    <b className="sm-amount">
+                      {currency === 'SOL'
+                        ? 'SOL quote unavailable'
+                        : `${total.toFixed(2)} USDC`}
+                    </b>
+                    <small>Item subtotal: {money(total)}</small>
+                  </span>
                 </div>
 
                 {mixedCurrencies && (
-                  <div className="mt-4 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-800">
-                    <Info size={16} className="mt-0.5 shrink-0" />
-                    <p>
-                      Your cart contains products with different listed
-                      currencies. Each seller's listing price must be
-                      handled correctly before payment can be completed.
-                    </p>
+                  <div className="sm-rate">
+                    Your cart contains listings with different currencies.
+                    The final payable amount must be calculated by the
+                    checkout service.
                   </div>
                 )}
+              </section>
 
-                <div className="mt-4 flex items-start gap-2 rounded-xl bg-gray-50 p-3 text-xs leading-5 text-gray-600">
-                  <Coins size={16} className="mt-0.5 shrink-0" />
-                  <p>
-                    The live SOL exchange rate and payment quote must be
-                    connected before the SOL amount can be calculated.
-                  </p>
+              <div className="sm-escrow">
+                <svg width="22" height="22" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" strokeWidth="1.8"
+                  strokeLinecap="round" strokeLinejoin="round"
+                  aria-hidden="true">
+                  <path d="M12 3l8 3v6c0 5-3.4 8.4-8 9-4.6-.6-8-4-8-9V6z" />
+                  <path d="M8.5 12l2.5 2.5 4.5-5" />
+                </svg>
+
+                <div>
+                  <b>Protected by escrow.</b>{' '}
+                  Your payment should be held until you confirm delivery.
+                  Seller payouts and dispute protection must be enforced
+                  by the marketplace escrow system.
                 </div>
               </div>
+            </>
+          )}
+        </main>
 
-              <div className="rounded-3xl border border-[#e5e9e1] bg-white p-5 shadow-sm sm:p-6">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#eaf6dc] text-[#4e7c27]">
-                    <ShieldCheck size={23} />
-                  </div>
+        {items.length > 0 && (
+          <footer className="sm-footer">
+            <button
+              type="button"
+              className="sm-pay"
+              onClick={handlePay}
+              disabled={!publicKey}
+            >
+              {!publicKey
+                ? 'Connect wallet to continue'
+                : currency === 'SOL'
+                  ? 'SOL payment coming soon'
+                  : 'Checkout opens soon'}
+            </button>
 
-                  <div>
-                    <h2 className="font-extrabold">
-                      Buyer protection
-                    </h2>
-
-                    <p className="mt-1 text-sm leading-6 text-gray-500">
-                      Your marketplace should protect eligible orders
-                      while delivery and dispute handling are completed.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                  <div className="flex gap-3">
-                    <BadgeCheck
-                      size={19}
-                      className="mt-0.5 shrink-0 text-[#65963b]"
-                    />
-
-                    <div>
-                      <p className="text-sm font-bold">
-                        Order tracking
-                      </p>
-                      <p className="mt-1 text-xs leading-5 text-gray-500">
-                        Keep your order details available.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <Clock3
-                      size={19}
-                      className="mt-0.5 shrink-0 text-[#65963b]"
-                    />
-
-                    <div>
-                      <p className="text-sm font-bold">
-                        Dispute support
-                      </p>
-                      <p className="mt-1 text-xs leading-5 text-gray-500">
-                        Dispute and release rules must be enforced by
-                        the backend.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <aside className="h-fit rounded-3xl border border-[#e5e9e1] bg-white p-5 shadow-sm sm:p-6 lg:sticky lg:top-6">
-              <h2 className="text-lg font-extrabold">
-                Order summary
-              </h2>
-
-              <div className="mt-5 space-y-4">
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="text-gray-500">
-                    Subtotal ({itemCount}{' '}
-                    {itemCount === 1 ? 'item' : 'items'})
-                  </span>
-
-                  <span className="font-bold">
-                    {formatMoney(total, items[0]?.currency || 'USDC')}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="text-gray-500">
-                    Network fee
-                  </span>
-                  <span className="text-right text-xs text-gray-500">
-                    Calculated by wallet
-                  </span>
-                </div>
-
-                <div className="border-t border-dashed border-gray-200 pt-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="font-bold">Order total</span>
-
-                    <span className="text-xl font-black tracking-tight">
-                      {formatMoney(total, items[0]?.currency || 'USDC')}
-                    </span>
-                  </div>
-
-                  <p className="mt-2 text-xs leading-5 text-gray-500">
-                    Displayed total uses the listing currencies. A
-                    connected quote service is needed to calculate the
-                    exact amount payable in your chosen currency.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handlePayment}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#c6f36b] px-5 py-4 font-extrabold text-[#20351a] transition hover:bg-[#b8e85b] active:scale-[0.99]"
-              >
-                <Wallet size={19} />
-                Continue with {currency}
-                <ArrowRight size={18} />
-              </button>
-
-              {notice && (
-                <div
-                  role="status"
-                  className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900"
-                >
-                  {notice}
-                </div>
-              )}
-
-              <div className="mt-5 flex items-center justify-center gap-2 text-xs text-gray-500">
-                <LockKeyhole size={14} />
-                <span>Checkout interface · Payments not connected</span>
-              </div>
-
-              <p className="mt-4 text-center text-[11px] leading-5 text-gray-400">
-                Never approve a wallet transaction unless the amount,
-                recipient, and network are correct.
-              </p>
-            </aside>
-          </div>
+            <p>You will approve any payment in your wallet.</p>
+          </footer>
         )}
       </div>
-    </main>
+
+      {notice && (
+        <div className="sm-toast" role="status">
+          {notice}
+        </div>
+      )}
+    </div>
   )
 }
