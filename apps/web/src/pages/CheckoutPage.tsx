@@ -627,13 +627,16 @@ export default function CheckoutPage({
                 <div className="sm-total">
                   <span><b>Total</b></span>
 
-                  <span>
-                    <b className="sm-amount">
-                      {currency === 'SOL'
-                        ? 'SOL quote unavailable'
-                        : `${total.toFixed(2)} USDC`}
+                 <span>
+                   <b className="sm-amount">
+                     {currency === 'SOL'
+                       ? 'Awaiting SOL quote'
+                       : `${total.toFixed(2)} USDC`}
                     </b>
-                    <small>Item subtotal: {money(total)}</small>
+
+                    <small>
+                      Item subtotal: {money(total)} USDC
+                    </small>
                   </span>
                 </div>
 
