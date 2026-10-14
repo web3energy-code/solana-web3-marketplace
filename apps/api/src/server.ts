@@ -69,15 +69,16 @@ app.post('/wallet/challenge', async (req: Request, res: Response) => {
   }
 
     if (
-    requestedPurpose !== undefined &&
-    requestedPurpose !== 'listing' &&
-    requestedPurpose !== 'seller_profile' &&
-    requestedPurpose !== 'messaging'
-  ) {
-    res.status(400).json({
-      error: 'Invalid wallet challenge purpose.',
-    })
-    return
+      requestedPurpose !== undefined &&
+      requestedPurpose !== 'listing' &&
+      requestedPurpose !== 'seller_profile' &&
+      requestedPurpose !== 'messaging' &&
+      requestedPurpose !== 'checkout'
+   ) {
+      res.status(400).json({
+        error: 'Invalid wallet challenge purpose.',
+      })
+      return
   }
 
   try {
