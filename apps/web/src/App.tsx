@@ -2656,7 +2656,14 @@ function addToCart(id: string | number) {
         
         {activePage === 'sell' && <SellPage />}
 
-        {activePage === 'checkout' && <CheckoutPage />}
+        {activePage === 'checkout' && (
+          <CheckoutPage
+            products={products}
+            cart={cart}
+            changeQuantity={changeQuantity}
+            onBack={() => navigate('marketplace')}
+          />
+         )}
 
         {activePage === 'messages' && (
           <MessagesPage
