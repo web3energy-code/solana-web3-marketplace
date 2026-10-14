@@ -5,7 +5,7 @@ type Product = {
   id: string | number
   name: string
   price: number
-  currency: 'USDC' | 'SOL'
+  currency: 'USDC' 
   quantity: number
   image_urls?: string[]
   image_url?: string
