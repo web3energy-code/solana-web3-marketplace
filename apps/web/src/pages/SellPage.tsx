@@ -760,10 +760,10 @@ export default function SellPage() {
             <section className="sell-card">
               <h2 className="sell-section-title">Price and availability</h2>
 
-              <p className="sell-help">
-                Choose the cryptocurrency in which you want to price your item.
-                This does not initiate a payment.
-              </p>
+             <p className="sell-help">
+               Set your product price in USDC. Buyers can choose to pay in USDC
+               or SOL at checkout. Listing a product does not initiate a payment.
+             </p>
 
               <div className="sell-two-columns">
                 <div className="sell-field">
